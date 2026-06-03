@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from .amm import StableswapAMM
-from .orderbook import RedemptionChannel
-from .reserves import ReserveModel
+from .redemption import RedemptionChannel
+from .reserve import ReserveModel
 
 if TYPE_CHECKING:
     from ..scenarios.schedule import ShockEvent

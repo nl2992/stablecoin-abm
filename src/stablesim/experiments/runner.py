@@ -11,8 +11,8 @@ from ..agents.noise import NoiseTrader
 from ..agents.redeemer import Redeemer
 from ..engine.market import MultiVenueMarket
 from ..engine.amm import StableswapAMM
-from ..engine.orderbook import RedemptionChannel
-from ..engine.reserves import ReserveModel
+from ..engine.redemption import RedemptionChannel
+from ..engine.reserve import ReserveModel
 from ..scenarios.schedule import ShockSchedule
 from .interventions import InterventionConfig
 

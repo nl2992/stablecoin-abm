@@ -72,11 +72,20 @@ class StableswapAMM:
     # Public interface
 
     def price(self) -> float:
-        """Marginal price dy/dx at current reserves (spot price of x in y)."""
-        eps = 1e-4
-        y0 = self._y_given_x(self.x + eps)
-        y1 = self._y_given_x(self.x - eps)
-        return (y1 - y0) / (2 * eps)
+        """Analytic marginal price dy/dx (spot price of x in terms of y).
+
+        Derived via implicit differentiation of the stableswap invariant:
+            F(x, y) = 4A(x+y) + D − 4AD − D³/(4xy) = 0
+            ∂F/∂x = 4A + D³/(4x²y)
+            ∂F/∂y = 4A + D³/(4xy²)
+            price  = (∂F/∂x) / (∂F/∂y)
+
+        At x=y (equilibrium): ∂F/∂x = ∂F/∂y → price = 1.0 exactly.
+        """
+        D3 = self._D ** 3
+        dFdx = 4.0 * self.amp + D3 / (4.0 * self.x ** 2 * self.y)
+        dFdy = 4.0 * self.amp + D3 / (4.0 * self.x * self.y ** 2)
+        return dFdx / dFdy
 
     def swap_x_for_y(self, dx: float) -> float:
         """Swap dx units of x into y.  Returns dy received (net of fee)."""

@@ -16,8 +16,8 @@ from gymnasium import spaces
 
 from ..engine.market import MultiVenueMarket
 from ..engine.amm import StableswapAMM
-from ..engine.orderbook import RedemptionChannel
-from ..engine.reserves import ReserveModel
+from ..engine.redemption import RedemptionChannel
+from ..engine.reserve import ReserveModel
 from ..agents.arbitrageur import Arbitrageur
 from ..agents.redeemer import Redeemer
 from ..agents.lp import LPAgent
