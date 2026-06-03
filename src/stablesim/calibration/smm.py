@@ -52,34 +52,35 @@ from ..scenarios.schedule import ShockSchedule
 # Parameter space — 4 free + 1 fixed
 
 PARAM_NAMES = [
-    "reserve_speed",       # OU kappa for backing ratio
-    "reserve_vol",         # OU sigma
-    "arb_min_spread",      # min price spread to trigger arbitrage
-    "noise_trade_prob",    # Bernoulli prob each step
+    "pool_amp",        # stableswap amplification; identified by contagion magnitude + OU half-life
+    "noise_size",      # mean noise-trade size (USD); identified by baseline price vol
+    "shock_scale",     # multiplies scenario shock magnitude; identified by contagion magnitude
+    "reserve_speed",   # OU kappa for backing ratio; identified by calm OU half-life
 ]
 
 PARAM_BOUNDS = [
-    (0.01, 0.30),          # reserve_speed
-    (0.005, 0.05),         # reserve_vol
-    (0.0005, 0.01),        # arb_min_spread
-    (0.10, 0.70),          # noise_trade_prob
+    (8.0, 150.0),          # pool_amp
+    (200.0, 25_000.0),     # noise_size (USD)
+    (0.5, 8.0),            # shock_scale
+    (0.02, 0.60),          # reserve_speed
 ]
-
-# Fixed structural constant (not optimized — see identification note above)
-NOISE_TRADE_SIZE_FIXED = 2_000.0   # USD; prior from retail trade-size literature
 
 
 def _load_targets(targets_path: str | Path | None = None) -> dict:
     if targets_path is None:
-        targets_path = Path(__file__).parents[4] / "configs" / "calibration_targets.json"
+        targets_path = Path(__file__).parents[3] / "configs" / "calibration_targets.json"
     with open(targets_path) as f:
         return json.load(f)
 
 
 def _params_to_dict(params: np.ndarray) -> dict:
-    d = dict(zip(PARAM_NAMES, params.tolist()))
-    d["noise_trade_size"] = NOISE_TRADE_SIZE_FIXED  # always include for downstream use
-    return d
+    return dict(zip(PARAM_NAMES, params.tolist()))
+
+
+def _episode_kwargs(params: np.ndarray) -> dict:
+    amp, noise_size, shock_scale, reserve_speed = params.tolist()
+    return dict(pool_amp=amp, noise_size=noise_size, shock_scale=shock_scale,
+                reserve_speed=reserve_speed)
 
 
 def _simulate_moments(
@@ -91,10 +92,11 @@ def _simulate_moments(
 ) -> dict:
     """Simulate one θ configuration and return all 4 moment estimates."""
     calm_half_lives, calm_vols, crisis_magnitudes, cross_rhos = [], [], [], []
+    ekw = _episode_kwargs(params)
 
     for seed in range(n_seeds):
-        # Calm run
-        r_calm = run_episode(baseline_scenario, BASELINE, n_steps=n_steps, rng_seed=seed)
+        # Calm run (no shock_scale effect since baseline has no shocks)
+        r_calm = run_episode(baseline_scenario, BASELINE, n_steps=n_steps, rng_seed=seed, **ekw)
         df_c = r_calm["history"]
         prices_c = df_c["mid_price"].values
         hl = compute_ou_half_life(prices_c - 1.0)
@@ -102,7 +104,7 @@ def _simulate_moments(
         calm_vols.append(float(np.std(np.diff(prices_c))) if len(prices_c) > 1 else 0.0)
 
         # Crisis run
-        r_crisis = run_episode(shock_scenario, BASELINE, n_steps=n_steps, rng_seed=seed)
+        r_crisis = run_episode(shock_scenario, BASELINE, n_steps=n_steps, rng_seed=seed, **ekw)
         df_k = r_crisis["history"]
         crisis_magnitudes.append(float(df_k["depeg"].abs().max()))
 

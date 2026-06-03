@@ -23,21 +23,37 @@ def run_episode(
     n_steps: int = 100,
     n_noise_traders: int = 5,
     rng_seed: int | None = None,
+    *,
+    pool_amp: float = 100.0,
+    noise_size: float = 1_000.0,
+    shock_scale: float = 1.0,
+    reserve_speed: float | None = None,
 ) -> dict:
     """Run one episode and return outcome metrics.
 
+    Calibration knobs (thread through SMM so simulated moments respond to params):
+      pool_amp      — stableswap amplification; lower => price depegs more easily.
+      noise_size    — mean noise-trade size (USD); drives baseline price volatility.
+      shock_scale   — multiplies scenario shock magnitudes; drives contagion magnitude.
+      reserve_speed — override ReserveModel OU mean-reversion speed.
+
     Returns
     -------
-    dict with keys: scenario, intervention, history_df, metrics
+    dict with keys: scenario, intervention, history, metrics
     """
     rng = np.random.default_rng(rng_seed)
     kw = intervention.to_market_kwargs()
+    reserve_kw = dict(kw["reserve"])
+    if reserve_speed is not None:
+        reserve_kw["speed"] = reserve_speed
 
-    pools = [StableswapAMM()]
+    # Shallower default pool ($200k) so noise trades and shocks actually move the
+    # mid-price — a $1M pool at amp 100 absorbs realistic flow and yields ~0 vol.
+    pools = [StableswapAMM(reserves=(100_000.0, 100_000.0), amp=pool_amp)]
     market = MultiVenueMarket(
         pools=pools,
         redemption=RedemptionChannel(**kw["redemption"]),
-        reserve=ReserveModel(rng=rng, **kw["reserve"]),
+        reserve=ReserveModel(rng=rng, **reserve_kw),
         rng=rng,
     )
 
@@ -47,12 +63,19 @@ def run_episode(
         + [Redeemer("red_0"), Redeemer("red_1")]
         + [LPAgent("lp_0", subsidy_rate=lp_subsidy), LPAgent("lp_1", subsidy_rate=lp_subsidy)]
         + [IssuerAgent()]
-        + [NoiseTrader(f"noise_{i}", rng=rng) for i in range(n_noise_traders)]
+        + [NoiseTrader(f"noise_{i}", rng=rng, trade_size_mean=noise_size,
+                       trade_size_std=0.5 * noise_size) for i in range(n_noise_traders)]
     )
 
     for step in range(n_steps):
         shock_events = scenario.events_at(step)
         shock = shock_events[0] if shock_events else None
+        if shock is not None and shock_scale != 1.0:
+            from ..scenarios.schedule import ShockEvent
+            shock = ShockEvent(step=shock.step, kind=shock.kind,
+                               magnitude=shock.magnitude * shock_scale,
+                               pool_idx=getattr(shock, "pool_idx", 0),
+                               label=getattr(shock, "label", ""))
         snap = market.step(shock=shock)
         for agent in agents:
             agent.act(market, snap)
