@@ -1,4 +1,4 @@
-.PHONY: install test lint fmt calibrate train sweep clean
+.PHONY: install test lint fmt calibrate counterfactuals joint-analysis train sweep clean
 
 install:
 	pip install -e ".[dev]" || pip install -e . && pip install -r requirements.txt
@@ -12,9 +12,17 @@ lint:
 fmt:
 	ruff format src/ tests/
 
-# Run calibration to match empirical half-lives from stablecoin-contagion-network
+# Run SMM calibration against empirical moments from stablecoin-contagion-network
 calibrate:
-	python -m stablesim.calibration.optimizer --config configs/base.yaml
+	python scripts/run_calibration.py --n-seeds 20 --maxiter 80
+
+# Run per-hub counterfactuals (40 seeds × all hubs, ~30 min)
+counterfactuals:
+	python scripts/run_counterfactuals.py --n-seeds 40 --n-steps 150
+
+# Joint analysis: predicted vs. causal hub ranking + headline figure
+joint-analysis:
+	python scripts/run_joint_analysis.py
 
 # Train RL policies (PPO) for arbitrageur / redeemer agents
 train:

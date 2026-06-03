@@ -1,0 +1,77 @@
+{
+  "_comment": "Locked empirical targets from stablecoin-contagion-network repo 1. DO NOT edit manually — regenerate via scripts/export_calibration_targets.py after repo 1 results change.",
+  "_repo1_commit": "TBD",
+  "_generated": "2026-06-03",
+
+  "events": {
+    "usdt_curve_2023": {
+      "mean_abs_effect": 0.382,
+      "propagation_intensity_score": 91.41,
+      "sps": 1.0,
+      "n_paper_claimable_edges": 3,
+      "top_hub": "usdt_binance",
+      "top_hub_role": "amplifier",
+      "top_hub_eigenvector": 0.0,
+      "nodes": ["usdt_binance", "tron_usdt_exchange_flows", "usdt_kraken", "uniswap_usdc_usdt_005", "usdt_mint_burn"]
+    },
+    "busd_2023": {
+      "mean_abs_effect": 0.902,
+      "propagation_intensity_score": 23.01,
+      "sps": 0.249,
+      "n_paper_claimable_edges": 17,
+      "top_hub": "busd_binance",
+      "top_hub_role": "originator",
+      "nodes": ["busd_binance", "usdt_binance", "usdc_binance", "curve_3pool"]
+    },
+    "ftx_2022": {
+      "mean_abs_effect": 0.570,
+      "propagation_intensity_score": 13.52,
+      "sps": 0.178,
+      "n_paper_claimable_edges": 9,
+      "top_hub": "usdt_binance",
+      "top_hub_role": "originator",
+      "nodes": ["usdt_binance", "busd_binance", "curve_3pool", "eth_bridge_flows", "eth_usdc_exchange_flows", "eth_usdt_exchange_flows"]
+    },
+    "terra_luna_2022": {
+      "mean_abs_effect": 0.0,
+      "propagation_intensity_score": 9.0,
+      "sps": 0.142,
+      "n_paper_claimable_edges": 6,
+      "top_hub": "ust_binance",
+      "top_hub_role": "amplifier",
+      "nodes": ["usdt_binance", "ust_binance", "curve_3pool", "curve_ust_wormhole"]
+    },
+    "usdc_svb_2023": {
+      "mean_abs_effect": 0.842,
+      "propagation_intensity_score": 15.15,
+      "sps": 0.142,
+      "n_paper_claimable_edges": 14,
+      "top_hub": "usdc_coinbase",
+      "top_hub_role": "amplifier",
+      "nodes": ["usdc_coinbase", "eth_usdc_exchange_flows", "usdt_kraken", "uniswap_usdc_usdt_005", "eth_bridge_flows", "usdc_kraken", "curve_3pool", "eth_usdt_exchange_flows", "usdc_mint_burn", "usdc_binance", "usdt_binance"]
+    }
+  },
+
+  "aggregate": {
+    "mean_abs_effect_across_events": 0.539,
+    "mean_propagation_intensity": 30.42
+  },
+
+  "calibration_tolerances": {
+    "contagion_magnitude_rtol": 0.25,
+    "propagation_rho_atol": 0.10,
+    "ou_half_life_rtol": 0.30,
+    "n_seeds_for_regression_test": 20
+  },
+
+  "abm_moment_targets": {
+    "_comment": "ABM-step targets derived from empirical moments. 1 step ≈ 5 min. Calm half-life ~3.2 min ≈ 0.64 steps → rounded to 1-3 steps. Crisis half-life ~600 min ≈ 120 steps.",
+    "calm_ou_half_life_steps": 3.0,
+    "crisis_ou_half_life_steps": 120.0,
+    "baseline_price_vol": 0.003,
+    "contagion_magnitude_high": 0.842,
+    "contagion_magnitude_low": 0.382,
+    "cross_venue_rho_crisis": 0.576,
+    "cross_venue_rho_calm": 0.10
+  }
+}
