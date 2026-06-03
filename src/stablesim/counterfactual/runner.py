@@ -1,27 +1,26 @@
-"""Multi-seed counterfactual runner.
+"""Multi-seed counterfactual runner — paired design with correct inference.
 
-For each hub node, runs N_SEEDS paired episodes (baseline vs. intervened) and
-estimates the causal effect as:
+Three key changes from the original:
+  1. UNIFORM ABLATION as primary treatment (intervention_spec.py).
+     Type-specific knobs are secondary only.  All hubs get the same alpha dose,
+     making delta-C comparable across the node universe.
 
-    Δcontagion_h = E[baseline_magnitude] − E[intervened_magnitude]
+  2. PAIRED standard error (inference.py).
+     Baseline and intervened use the SAME seed, so the variance of the within-
+     seed difference drives the SE.  Using a two-sample SE was wrong.
 
-with standard error from the variance of the difference:
-
-    SE = sqrt(Var[baseline]/N + Var[intervened]/N)
-
-Mirroring the 40k-sim averaging discipline from Gu et al. (2023):
-single runs are meaningless; report distributions and t-statistics.
+  3. BH FDR correction via summarize_sweep().
+     Never claim significance on raw p-values across multiple hubs.
 
 Usage:
-    from stablesim.counterfactual.runner import run_counterfactual
-    result = run_counterfactual(hub_node, scenario, n_seeds=40)
+    from stablesim.counterfactual.runner import run_all_hubs, N_SEEDS_DEFAULT
+    results = run_all_hubs(hubs, scenario, n_seeds=N_SEEDS_DEFAULT)
+    # results: list[PairedResult], FDR-corrected, sorted by delta_c desc
 """
 
 from __future__ import annotations
 
 import numpy as np
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 from ..agents.arbitrageur import Arbitrageur
 from ..agents.issuer import IssuerAgent
@@ -32,99 +31,33 @@ from ..engine.amm import StableswapAMM
 from ..engine.market import MultiVenueMarket
 from ..engine.redemption import RedemptionChannel
 from ..engine.reserve import ReserveModel
-from ..experiments.interventions import BASELINE
 from ..scenarios.schedule import ShockSchedule
-from .hub_interventions import HubNode, HubInterventionParams, apply_hub_intervention, build_intervention_params
+from .ablation_adapter import apply_ablation
+from .hub_interventions import HubNode
+from .inference import PairedResult, required_n, summarize_sweep
+from .intervention_spec import DOSE_GRID, primary_intervention
 
-if TYPE_CHECKING:
-    from .hub_interventions import InterventionType
-
-N_SEEDS_DEFAULT = 40     # Match Gu et al. discipline
-N_SEEDS_FAST = 8         # For CI / quick checks
-
-
-@dataclass
-class CounterfactualResult:
-    """Per-hub counterfactual outcome with standard errors.
-
-    Attributes
-    ----------
-    hub : HubNode
-    baseline_magnitudes : np.ndarray
-        Peak |depeg| per seed in no-intervention runs.
-    intervened_magnitudes : np.ndarray
-        Peak |depeg| per seed in intervened runs.
-    delta_contagion : float
-        E[baseline] − E[intervened].  Positive = intervention reduced contagion.
-    se : float
-        Standard error of delta_contagion.
-    t_stat : float
-        t = delta_contagion / se.
-    p_value_one_sided : float
-        One-sided p-value (H1: intervention reduces contagion).
-    """
-
-    hub: HubNode
-    baseline_magnitudes: np.ndarray
-    intervened_magnitudes: np.ndarray
-    intervention_type: str
-    n_seeds: int
-    n_steps: int
-    scenario_name: str
-
-    # Derived on __post_init__
-    delta_contagion: float = field(init=False)
-    se: float = field(init=False)
-    t_stat: float = field(init=False)
-    p_value_one_sided: float = field(init=False)
-    baseline_mean: float = field(init=False)
-    intervened_mean: float = field(init=False)
-
-    def __post_init__(self) -> None:
-        from scipy import stats
-
-        b = self.baseline_magnitudes
-        i = self.intervened_magnitudes
-        self.baseline_mean = float(np.mean(b))
-        self.intervened_mean = float(np.mean(i))
-        self.delta_contagion = self.baseline_mean - self.intervened_mean
-        self.se = float(np.sqrt(np.var(b, ddof=1) / len(b) + np.var(i, ddof=1) / len(i)))
-        self.t_stat = self.delta_contagion / max(self.se, 1e-9)
-        # One-sided: H1 delta > 0
-        self.p_value_one_sided = float(stats.t.sf(self.t_stat, df=2 * (len(b) - 1)))
-
-    def is_significant(self, alpha: float = 0.05) -> bool:
-        return self.p_value_one_sided < alpha
-
-    def summary_dict(self) -> dict:
-        return {
-            "node_id": self.hub.node_id,
-            "node_type": self.hub.node_type.value,
-            "role": self.hub.role,
-            "predicted_importance": self.hub.predicted_importance,
-            "intervention_type": self.intervention_type,
-            "baseline_mean": self.baseline_mean,
-            "intervened_mean": self.intervened_mean,
-            "delta_contagion": self.delta_contagion,
-            "se": self.se,
-            "t_stat": self.t_stat,
-            "p_value_one_sided": self.p_value_one_sided,
-            "significant_p05": self.is_significant(0.05),
-            "n_seeds": self.n_seeds,
-            "scenario": self.scenario_name,
-        }
+N_SEEDS_DEFAULT = 40    # justify with required_n() on calibrated noise
+N_SEEDS_FAST = 8        # CI / smoke tests
 
 
-def _build_market(rng: np.random.Generator, redemption_kwargs: dict = {}, reserve_kwargs: dict = {}) -> MultiVenueMarket:
+# --------------------------------------------------------------------------- #
+# Market and agent factories — deterministic given seed                       #
+# --------------------------------------------------------------------------- #
+
+def _make_market(rng: np.random.Generator) -> MultiVenueMarket:
     return MultiVenueMarket(
-        pools=[StableswapAMM(), StableswapAMM(reserves=(900_000, 1_100_000), amp=100)],
-        redemption=RedemptionChannel(**redemption_kwargs),
-        reserve=ReserveModel(rng=rng, **reserve_kwargs),
+        pools=[
+            StableswapAMM(),
+            StableswapAMM(reserves=(900_000, 1_100_000), amp=100),
+        ],
+        redemption=RedemptionChannel(),
+        reserve=ReserveModel(rng=rng),
         rng=rng,
     )
 
 
-def _build_agents(rng: np.random.Generator) -> list:
+def _make_agents(rng: np.random.Generator) -> list:
     return [
         Arbitrageur("arb_0"), Arbitrageur("arb_1"),
         Redeemer("red_0"), Redeemer("red_1"),
@@ -136,20 +69,26 @@ def _build_agents(rng: np.random.Generator) -> list:
     ]
 
 
-def _run_single(
+def _run_single_episode(
     scenario: ShockSchedule,
     n_steps: int,
-    rng_seed: int,
-    hub: HubNode | None = None,
-    params: HubInterventionParams | None = None,
-) -> dict:
-    """Run one episode (baseline if hub is None, intervened otherwise)."""
-    rng = np.random.default_rng(rng_seed)
-    market = _build_market(rng)
-    agents = _build_agents(rng)
+    seed: int,
+    hub: HubNode | None,
+    alpha: float,
+) -> float:
+    """Run one episode and return contagion magnitude.
 
+    If hub is not None, applies uniform ablation at the given alpha BEFORE
+    any shocks or agent actions.  Alpha=0.0 is a guaranteed no-op so the
+    baseline arm and the control arm use identical code paths.
+    """
+    rng = np.random.default_rng(seed)
+    market = _make_market(rng)
+    agents = _make_agents(rng)
+
+    # Apply ablation (or no-op baseline) — must come before any steps
     if hub is not None:
-        apply_hub_intervention(market, hub, params, current_step=0)
+        apply_ablation(market, hub, alpha, agents)
 
     for step in range(n_steps):
         shock_events = scenario.events_at(step)
@@ -159,79 +98,140 @@ def _run_single(
             agent.act(market, snap)
 
     df = market.history_df()
-    return {
-        "contagion_magnitude": float(df["depeg"].abs().max()),
-        "ou_half_life": _ou_hl(df["depeg"].values),
-        "welfare": {type(a).__name__: a.cumulative_pnl for a in agents},
-    }
+    return float(df["depeg"].abs().max())
 
 
-def _ou_hl(depeg: np.ndarray) -> float:
-    from ..analysis.metrics import compute_ou_half_life
-    return compute_ou_half_life(depeg)
+# --------------------------------------------------------------------------- #
+# Per-hub runner                                                               #
+# --------------------------------------------------------------------------- #
 
-
-def run_counterfactual(
+def run_hub_paired(
     hub: HubNode,
     scenario: ShockSchedule,
+    *,
+    alpha: float = 1.0,
     n_seeds: int = N_SEEDS_DEFAULT,
     n_steps: int = 150,
-    intervention_type: "InterventionType | None" = None,
     base_seed: int = 0,
     verbose: bool = False,
-) -> CounterfactualResult:
-    """Run paired baseline/intervened episodes for one hub.
+) -> tuple[list[float], list[float]]:
+    """Collect paired (baseline, intervened) contagion magnitudes.
 
-    Parameters
-    ----------
-    hub : HubNode
-        The hub to intervene on.
-    scenario : ShockSchedule
-        Exogenous shock schedule for both runs.
-    n_seeds : int
-        Number of independent seeds.  Use 40+ for publishable estimates.
-    intervention_type : InterventionType | None
-        Override the default intervention for this hub type.
+    CRITICAL: baseline and intervened use the SAME seed so they are paired.
+    This is what makes the paired SE valid.
     """
-    params = build_intervention_params(hub, intervention_type)
-    itype_str = params.intervention_type.value
-
-    baseline_mags, intervened_mags = [], []
+    baseline_C: list[float] = []
+    intervened_C: list[float] = []
 
     for i in range(n_seeds):
         seed = base_seed + i
         if verbose and i % 10 == 0:
-            print(f"  hub={hub.node_id} seed={seed}/{n_seeds}")
+            print(f"  {hub.node_id}  seed {seed}/{base_seed + n_seeds - 1}")
 
-        b = _run_single(scenario, n_steps, seed, hub=None, params=None)
-        iv = _run_single(scenario, n_steps, seed, hub=hub, params=params)
+        # Same seed for both arms -- the paired design
+        b = _run_single_episode(scenario, n_steps, seed, hub=None, alpha=0.0)
+        c = _run_single_episode(scenario, n_steps, seed, hub=hub, alpha=alpha)
 
-        baseline_mags.append(b["contagion_magnitude"])
-        intervened_mags.append(iv["contagion_magnitude"])
+        baseline_C.append(b)
+        intervened_C.append(c)
 
-    return CounterfactualResult(
-        hub=hub,
-        baseline_magnitudes=np.array(baseline_mags),
-        intervened_magnitudes=np.array(intervened_mags),
-        intervention_type=itype_str,
-        n_seeds=n_seeds,
-        n_steps=n_steps,
-        scenario_name=scenario.name,
-    )
+    return baseline_C, intervened_C
 
+
+# --------------------------------------------------------------------------- #
+# Dose-response check                                                          #
+# --------------------------------------------------------------------------- #
+
+def run_dose_response(
+    hub: HubNode,
+    scenario: ShockSchedule,
+    *,
+    n_seeds: int = 20,
+    n_steps: int = 150,
+    alphas: tuple[float, ...] = DOSE_GRID,
+    base_seed: int = 0,
+) -> dict[float, list[float]]:
+    """Run episode at each dose alpha for the hub.
+
+    Used to verify monotone dose-response before trusting the headline ranking.
+    Each alpha shares seeds with the alpha=0 control so the comparison is paired.
+    """
+    results: dict[float, list[float]] = {}
+    for alpha in alphas:
+        mags = []
+        for i in range(n_seeds):
+            seed = base_seed + i
+            m = _run_single_episode(scenario, n_steps, seed, hub=hub, alpha=alpha)
+            mags.append(m)
+        results[alpha] = mags
+    return results
+
+
+# --------------------------------------------------------------------------- #
+# Sweep over all hubs                                                          #
+# --------------------------------------------------------------------------- #
 
 def run_all_hubs(
     hubs: list[HubNode],
     scenario: ShockSchedule,
+    *,
+    alpha: float = 1.0,
     n_seeds: int = N_SEEDS_DEFAULT,
     n_steps: int = 150,
+    fdr: float = 0.05,
     verbose: bool = True,
-) -> list[CounterfactualResult]:
-    """Run counterfactual for every hub in the list."""
-    results = []
+) -> list[PairedResult]:
+    """Run paired counterfactual for every hub, return FDR-corrected results.
+
+    Returns
+    -------
+    list[PairedResult] sorted by delta_c descending (largest causal effect first).
+    Each result has q_value and significant_fdr set.
+    """
+    per_hub: dict[str, tuple[list[float], list[float]]] = {}
+
     for hub in hubs:
         if verbose:
-            print(f"Running counterfactual: {hub.node_id} ({hub.node_type.value})")
-        r = run_counterfactual(hub, scenario, n_seeds=n_seeds, n_steps=n_steps, verbose=verbose)
-        results.append(r)
-    return results
+            print(f"Counterfactual: {hub.node_id} ({hub.node_type.value})")
+        b, c = run_hub_paired(hub, scenario, alpha=alpha, n_seeds=n_seeds,
+                              n_steps=n_steps, verbose=verbose)
+        per_hub[hub.node_id] = (b, c)
+
+    return summarize_sweep(per_hub, fdr=fdr, seed=1)
+
+
+def power_check(
+    pilot_hub: HubNode,
+    pilot_scenario: ShockSchedule,
+    target_effect: float,
+    *,
+    n_pilot: int = 10,
+    alpha: float = 0.05,
+    power: float = 0.80,
+) -> int:
+    """Run a pilot to estimate SD of paired differences, then compute required_n.
+
+    Call this BEFORE the full sweep to justify N.  If required_n >> N_SEEDS_DEFAULT,
+    the headline test is underpowered and you should document that.
+
+    Returns
+    -------
+    n_required : int
+    """
+    import numpy as np
+    scenario = pilot_scenario
+    b, c = run_hub_paired(pilot_hub, scenario, alpha=1.0, n_seeds=n_pilot)
+    d = np.array(b) - np.array(c)
+    sd_d = float(d.std(ddof=1))
+    n_req = required_n(sd_d, target_effect, alpha=alpha, power=power)
+    print(
+        f"Pilot (n={n_pilot}): sd_d={sd_d:.4f}, "
+        f"to detect δC={target_effect:.3f} at {power:.0%} power need N={n_req} "
+        f"(planned: {N_SEEDS_DEFAULT})"
+    )
+    if n_req > N_SEEDS_DEFAULT:
+        print(
+            f"  WARNING: planned N={N_SEEDS_DEFAULT} is underpowered. "
+            f"Either increase seeds or flag non-significant results as 'underpowered', not 'null'."
+        )
+    return n_req

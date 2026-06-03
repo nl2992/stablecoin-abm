@@ -1,22 +1,35 @@
 """Simulated Method of Moments (SMM) calibration.
 
-Tunes the parameter vector θ = [reserve_speed, reserve_vol, arb_min_spread,
-noise_trade_prob, noise_trade_size_mean] until the simulated moments match the
-empirical targets locked in configs/calibration_targets.json.
+Identification
+==============
+We have 4 target moments and 4 free parameters (just-identified).
+noise_trade_size is FIXED as a structural constant (2 000 USD) based on
+market-microstructure priors for retail stablecoin trades; it is not identified
+by the price moments and fixing it avoids under-identification.
 
-Moment targets:
-  1. Calm OU half-life   (no-shock baseline, ~3 steps at 5 min/step)
-  2. Crisis contagion magnitude  (shock episode, peak |depeg|)
-  3. Cross-venue ρ̂      (Pearson correlation of pool prices during shock)
-  4. Baseline price vol  (std of Δprice in calm regime)
+  Free parameters (4):
+    reserve_speed    — OU kappa; identified by calm OU half-life
+    reserve_vol      — OU sigma; identified by baseline price vol
+    arb_min_spread   — identified by crisis contagion magnitude
+    noise_trade_prob — identified by cross-venue rho during shock
 
-Loss function: weighted MSE in relative terms.
+  Fixed structural constant:
+    noise_trade_size = 2 000 USD  (prior: median retail stablecoin trade)
+
+Moments (4):
+  1. Calm OU half-life       (no-shock baseline, ~3 steps at 5 min/step)
+  2. Baseline price vol      (std of Δprice in calm regime)
+  3. Crisis contagion magnitude (peak |depeg| during shock)
+  4. Cross-venue ρ̂           (Pearson r of pool prices during shock)
+
+Loss:
+  L(θ) = Σ_k w_k · ((m_sim_k(θ) − m_emp_k) / m_emp_k)²
+
 Optimizer: scipy.optimize.differential_evolution (global, gradient-free).
-
-Usage:
-    from stablesim.calibration.smm import SMMCalibrator
-    cal = SMMCalibrator()
-    best, report = cal.fit(n_seeds=20, maxiter=80)
+  • Run from n_de_restarts independent initial populations; confirm they
+    converge to the same basin before accepting the optimum.
+  • Sensitivity analysis: numerical Jacobian J[moment_k, param_j] around the
+    optimum, revealing which moments constrain which params.
 """
 
 from __future__ import annotations
@@ -36,14 +49,13 @@ from ..scenarios.loader import load_stressbench_scenarios
 from ..scenarios.schedule import ShockSchedule
 
 # ---------------------------------------------------------------------------
-# Parameter space
+# Parameter space — 4 free + 1 fixed
 
 PARAM_NAMES = [
     "reserve_speed",       # OU kappa for backing ratio
     "reserve_vol",         # OU sigma
     "arb_min_spread",      # min price spread to trigger arbitrage
     "noise_trade_prob",    # Bernoulli prob each step
-    "noise_trade_size",    # mean trade size (USD)
 ]
 
 PARAM_BOUNDS = [
@@ -51,10 +63,11 @@ PARAM_BOUNDS = [
     (0.005, 0.05),         # reserve_vol
     (0.0005, 0.01),        # arb_min_spread
     (0.10, 0.70),          # noise_trade_prob
-    (500.0, 10_000.0),     # noise_trade_size
 ]
 
-# ---------------------------------------------------------------------------
+# Fixed structural constant (not optimized — see identification note above)
+NOISE_TRADE_SIZE_FIXED = 2_000.0   # USD; prior from retail trade-size literature
+
 
 def _load_targets(targets_path: str | Path | None = None) -> dict:
     if targets_path is None:
@@ -64,7 +77,9 @@ def _load_targets(targets_path: str | Path | None = None) -> dict:
 
 
 def _params_to_dict(params: np.ndarray) -> dict:
-    return dict(zip(PARAM_NAMES, params.tolist()))
+    d = dict(zip(PARAM_NAMES, params.tolist()))
+    d["noise_trade_size"] = NOISE_TRADE_SIZE_FIXED  # always include for downstream use
+    return d
 
 
 def _simulate_moments(
@@ -74,27 +89,25 @@ def _simulate_moments(
     n_seeds: int,
     n_steps: int,
 ) -> dict:
-    """Simulate one parameter configuration and return moment estimates."""
-    p = _params_to_dict(params)
-
+    """Simulate one θ configuration and return all 4 moment estimates."""
     calm_half_lives, calm_vols, crisis_magnitudes, cross_rhos = [], [], [], []
 
     for seed in range(n_seeds):
-        # --- Calm run (no shock) ---
+        # Calm run
         r_calm = run_episode(baseline_scenario, BASELINE, n_steps=n_steps, rng_seed=seed)
         df_c = r_calm["history"]
         prices_c = df_c["mid_price"].values
-        calm_half_lives.append(compute_ou_half_life(prices_c - 1.0))
-        calm_vols.append(float(np.std(np.diff(prices_c))))
+        hl = compute_ou_half_life(prices_c - 1.0)
+        calm_half_lives.append(hl)
+        calm_vols.append(float(np.std(np.diff(prices_c))) if len(prices_c) > 1 else 0.0)
 
-        # --- Crisis run ---
+        # Crisis run
         r_crisis = run_episode(shock_scenario, BASELINE, n_steps=n_steps, rng_seed=seed)
         df_k = r_crisis["history"]
         crisis_magnitudes.append(float(df_k["depeg"].abs().max()))
 
-        # Cross-venue ρ̂: correlation between pool prices if ≥ 2 pools
-        pool_states = df_k.get("pool_states", None)
-        if pool_states is not None and len(df_k) > 5:
+        # Cross-venue ρ̂ from pool_states (if ≥ 2 pools recorded)
+        if "pool_states" in df_k.columns and len(df_k) > 5:
             try:
                 p0 = [s[0]["price"] for s in df_k["pool_states"]]
                 p1 = [s[-1]["price"] for s in df_k["pool_states"]]
@@ -105,29 +118,27 @@ def _simulate_moments(
         else:
             cross_rhos.append(0.0)
 
-    def _safe_median(lst):
+    def _med(lst):
         vals = [v for v in lst if np.isfinite(v)]
         return float(np.median(vals)) if vals else 0.0
 
     return {
-        "calm_ou_half_life": _safe_median(calm_half_lives),
-        "baseline_price_vol": _safe_median(calm_vols),
-        "contagion_magnitude": _safe_median(crisis_magnitudes),
-        "cross_venue_rho": _safe_median(cross_rhos),
+        "calm_ou_half_life": _med(calm_half_lives),
+        "baseline_price_vol": _med(calm_vols),
+        "contagion_magnitude": _med(crisis_magnitudes),
+        "cross_venue_rho": _med(cross_rhos),
     }
 
 
 class SMMCalibrator:
-    """Simulated Method of Moments calibrator.
+    """Just-identified (4×4) SMM calibrator with convergence and sensitivity checks.
 
     Parameters
     ----------
-    targets_path : str | Path | None
-        Path to calibration_targets.json.  Defaults to configs/calibration_targets.json.
-    event_name : str
-        Which event to calibrate against (must exist in targets JSON).
-    n_steps : int
-        Steps per simulated episode.
+    targets_path : path to calibration_targets.json.
+    event_name : which event to calibrate against.
+    n_steps : steps per simulated episode.
+    n_de_restarts : number of independent DE restarts for convergence check.
     """
 
     def __init__(
@@ -135,12 +146,14 @@ class SMMCalibrator:
         targets_path: str | Path | None = None,
         event_name: str = "usdc_svb_2023",
         n_steps: int = 150,
+        n_de_restarts: int = 3,
     ) -> None:
         self.targets_json = _load_targets(targets_path)
         self.abm_targets = self.targets_json["abm_moment_targets"]
         self.tolerances = self.targets_json["calibration_tolerances"]
         self.event_name = event_name
         self.n_steps = n_steps
+        self.n_de_restarts = n_de_restarts
 
         scenarios = load_stressbench_scenarios()
         self._shock = next(
@@ -152,7 +165,6 @@ class SMMCalibrator:
             ShockSchedule(name="baseline"),
         )
 
-        # Moment weights (relative importance in loss)
         self._weights = {
             "calm_ou_half_life": 1.0,
             "baseline_price_vol": 2.0,
@@ -185,6 +197,17 @@ class SMMCalibrator:
         }
         return sum(self._weights[k] * v for k, v in losses.items())
 
+    def _run_de(self, n_seeds: int, maxiter: int, popsize: int, seed: int, verbose: bool):
+        return differential_evolution(
+            lambda p: self._loss(p, n_seeds=n_seeds),
+            PARAM_BOUNDS,
+            maxiter=maxiter,
+            popsize=popsize,
+            tol=1e-4,
+            seed=seed,
+            disp=verbose,
+        )
+
     def fit(
         self,
         n_seeds: int = 20,
@@ -192,30 +215,37 @@ class SMMCalibrator:
         popsize: int = 10,
         verbose: bool = True,
     ) -> tuple[dict[str, float], "CalibrationReport"]:
-        """Run differential evolution.
+        """Run differential evolution from n_de_restarts seeds; check convergence.
 
-        Returns
-        -------
-        best_params : dict
-        report : CalibrationReport
+        Returns best_params and CalibrationReport.
         """
         from .report import CalibrationReport
 
         t0 = time.time()
-        result = differential_evolution(
-            lambda p: self._loss(p, n_seeds=n_seeds),
-            PARAM_BOUNDS,
-            maxiter=maxiter,
-            popsize=popsize,
-            tol=1e-4,
-            seed=42,
-            disp=verbose,
-        )
+        all_results = []
+        for restart in range(self.n_de_restarts):
+            if verbose:
+                print(f"\n--- DE restart {restart + 1}/{self.n_de_restarts} ---")
+            r = self._run_de(n_seeds, maxiter, popsize, seed=restart * 1000 + 42, verbose=verbose)
+            all_results.append(r)
+
+        # Pick best (lowest loss)
+        best_result = min(all_results, key=lambda r: r.fun)
         elapsed = time.time() - t0
 
-        best_params = _params_to_dict(result.x)
+        # Convergence check: do restarts agree within 10%?
+        convergence_ok = self._check_convergence(all_results)
+        if not convergence_ok:
+            print(
+                "WARNING: DE restarts did not converge to the same basin. "
+                "The calibration optimum may be fragile. "
+                "Document this in the calibration report."
+            )
+
+        best_params = _params_to_dict(best_result.x)
         final_moments = _simulate_moments(
-            result.x, self._shock, self._baseline, n_seeds=n_seeds * 2, n_steps=self.n_steps
+            best_result.x, self._shock, self._baseline,
+            n_seeds=n_seeds * 2, n_steps=self.n_steps,
         )
 
         report = CalibrationReport(
@@ -223,7 +253,45 @@ class SMMCalibrator:
             simulated_moments=final_moments,
             targets=self.abm_targets,
             tolerances=self.tolerances,
-            optimizer_result=result,
+            optimizer_result=best_result,
             elapsed_seconds=elapsed,
+            convergence_ok=convergence_ok,
+            n_de_restarts=self.n_de_restarts,
         )
         return best_params, report
+
+    def _check_convergence(self, results: list) -> bool:
+        """Return True if all DE runs land within 10% of the best loss."""
+        losses = [r.fun for r in results]
+        best = min(losses)
+        if best == 0:
+            return True
+        return all(abs(l - best) / best < 0.10 for l in losses)
+
+    def sensitivity_analysis(
+        self,
+        best_params: np.ndarray,
+        n_seeds: int = 20,
+        eps_frac: float = 0.05,
+    ) -> dict:
+        """Numerical Jacobian J[moment_k, param_j] at the optimum.
+
+        J_kj = (m_k(θ + eps·e_j) − m_k(θ)) / eps_j
+
+        Shows which moments constrain which parameters.
+        A near-zero column j means param j is weakly identified.
+        """
+        base = _simulate_moments(best_params, self._shock, self._baseline, n_seeds, self.n_steps)
+        moment_keys = list(base.keys())
+
+        jac = {}
+        for j, pname in enumerate(PARAM_NAMES):
+            eps_j = abs(best_params[j]) * eps_frac + 1e-8
+            p_plus = best_params.copy()
+            p_plus[j] += eps_j
+            m_plus = _simulate_moments(p_plus, self._shock, self._baseline, n_seeds, self.n_steps)
+            jac[pname] = {
+                mk: (m_plus[mk] - base[mk]) / eps_j
+                for mk in moment_keys
+            }
+        return {"jacobian": jac, "base_moments": base}

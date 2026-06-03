@@ -1,7 +1,9 @@
 """Causal hub ranking from counterfactual results.
 
-Ranks nodes by delta_contagion (estimated causal effect of intervention).
-Exports a DataFrame suitable for the joint analysis in analysis/comparison.py.
+Ranks nodes by delta_c (estimated causal effect of intervention) and exports
+a DataFrame suitable for the joint analysis in analysis/comparison.py.
+
+Uses PairedResult from inference.py (replaces the old CounterfactualResult).
 """
 
 from __future__ import annotations
@@ -9,24 +11,29 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
-from .runner import CounterfactualResult
+from .inference import PairedResult
 
 
-def causal_hub_ranking(results: list[CounterfactualResult]) -> pd.DataFrame:
-    """Convert counterfactual results to a ranked DataFrame.
+def causal_hub_ranking(results: list[PairedResult]) -> pd.DataFrame:
+    """Convert FDR-corrected PairedResults to a ranked DataFrame.
 
     Returns
     -------
-    pd.DataFrame with columns:
-        causal_rank, node_id, node_type, role, predicted_importance,
-        delta_contagion, se, t_stat, p_value_one_sided, significant_p05,
-        baseline_mean, intervened_mean, intervention_type, n_seeds, scenario
+    pd.DataFrame with columns: causal_rank + all fields from PairedResult.to_row().
+    Sorted by delta_c descending (largest causal reduction first).
     """
-    rows = [r.summary_dict() for r in results]
+    rows = [r.to_row() for r in results]
     df = pd.DataFrame(rows)
+
+    # Rename delta_c → delta_contagion for downstream compatibility
+    if "delta_c" in df.columns:
+        df = df.rename(columns={
+            "delta_c": "delta_contagion",
+            "se_paired": "se",
+        })
+
     df = df.sort_values("delta_contagion", ascending=False).reset_index(drop=True)
     df.insert(0, "causal_rank", range(1, len(df) + 1))
     return df
@@ -35,26 +42,36 @@ def causal_hub_ranking(results: list[CounterfactualResult]) -> pd.DataFrame:
 def save_ranking(
     df: pd.DataFrame,
     output_dir: str | Path = "experiments/results/counterfactual",
+    stamp_kwargs: dict | None = None,
 ) -> None:
+    """Save ranking CSV + JSON and optionally write a provenance stamp."""
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
-    df.to_csv(out / "causal_hub_ranking.csv", index=False)
-    # Also save as JSON for the joint analysis module
-    records = df.to_dict(orient="records")
-    with open(out / "causal_hub_ranking.json", "w") as f:
-        json.dump(records, f, indent=2)
+
+    csv_path = out / "causal_hub_ranking.csv"
+    df.to_csv(csv_path, index=False)
+
+    json_path = out / "causal_hub_ranking.json"
+    with open(json_path, "w") as f:
+        json.dump(df.to_dict(orient="records"), f, indent=2)
+
+    if stamp_kwargs is not None:
+        from ..utils.stamp import stamp_artifact
+        stamp_artifact(csv_path, **stamp_kwargs)
+
     print(f"Saved causal hub ranking to {out}/")
 
 
 def ranking_summary_table(df: pd.DataFrame) -> str:
-    """Return a Markdown table of the causal ranking with SEs."""
-    cols = [
-        "causal_rank", "node_id", "role", "delta_contagion",
-        "se", "t_stat", "significant_p05", "predicted_importance"
+    """Markdown table of the causal ranking with inference columns."""
+    want = [
+        "causal_rank", "node_id", "delta_contagion", "se",
+        "t_stat", "q_value", "significant_fdr", "underpowered",
+        "pair_corr", "n_pairs",
     ]
+    cols = [c for c in want if c in df.columns]
     sub = df[cols].copy()
-    sub["delta_contagion"] = sub["delta_contagion"].map("{:.4f}".format)
-    sub["se"] = sub["se"].map("{:.4f}".format)
-    sub["t_stat"] = sub["t_stat"].map("{:.2f}".format)
-    sub["predicted_importance"] = sub["predicted_importance"].map("{:.3f}".format)
+    for col in ("delta_contagion", "se", "t_stat", "q_value", "pair_corr"):
+        if col in sub.columns:
+            sub[col] = sub[col].map("{:.4f}".format)
     return sub.to_markdown(index=False)

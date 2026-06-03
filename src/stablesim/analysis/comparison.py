@@ -48,19 +48,37 @@ class AgreementMetrics:
 
     spearman_rho: float
     spearman_pvalue: float
-    top3_overlap: float
-    top5_overlap: float
-    ols_slope: float
-    ols_intercept: float
-    ols_r_squared: float
-    ols_pvalue: float
-    n_nodes: int
+    spearman_ci_lo: float = float("nan")   # bootstrap 95% CI lower
+    spearman_ci_hi: float = float("nan")   # bootstrap 95% CI upper
+    top3_overlap: float = 0.0
+    top5_overlap: float = 0.0
+    ols_slope: float = 0.0
+    ols_intercept: float = 0.0
+    ols_r_squared: float = 0.0
+    ols_pvalue: float = 1.0
+    n_nodes: int = 0
+    # Split by data tier
+    n_real_nodes: int = 0    # nodes that appear in real empirical episodes
+    n_synth_nodes: int = 0   # nodes that appear only in synthetic scenarios
+    spearman_rho_real: float = float("nan")   # agreement on real-episode hubs only
 
     def interpretation(self) -> str:
+        ci_str = (
+            f" [95% CI: {self.spearman_ci_lo:.3f}, {self.spearman_ci_hi:.3f}]"
+            if not (np.isnan(self.spearman_ci_lo) or np.isnan(self.spearman_ci_hi))
+            else " [CI: run bootstrap]"
+        )
+        real_str = (
+            f"\n  Spearman ρ (real-episode hubs only, n={self.n_real_nodes}): "
+            f"{self.spearman_rho_real:.3f}"
+            if not np.isnan(self.spearman_rho_real) else ""
+        )
         lines = [f"Agreement between repo-1 predicted importance and repo-2 causal effect (n={self.n_nodes} hubs)\n"]
-        lines.append(f"  Spearman ρ = {self.spearman_rho:.3f}  (p = {self.spearman_pvalue:.3f})")
+        lines.append(f"  Spearman ρ = {self.spearman_rho:.3f}  (p = {self.spearman_pvalue:.3f}){ci_str}")
         lines.append(f"  Top-3 overlap = {self.top3_overlap:.0%}  |  Top-5 overlap = {self.top5_overlap:.0%}")
         lines.append(f"  OLS: Δcontagion = {self.ols_intercept:.4f} + {self.ols_slope:.4f} × predicted_importance  (R² = {self.ols_r_squared:.3f}, p = {self.ols_pvalue:.3f})")
+        if real_str:
+            lines.append(real_str)
 
         if self.spearman_rho > 0.7:
             lines.append("\nConclusion: Strong agreement — GNN hub predictions are causally valid.")
@@ -89,6 +107,9 @@ def compute_agreement(
     predicted_col: str = "predicted_importance",
     causal_col: str = "delta_contagion",
     id_col: str = "node_id",
+    real_episode_nodes: list[str] | None = None,
+    n_boot: int = 2_000,
+    rng_seed: int = 0,
 ) -> AgreementMetrics:
     """Compute all three agreement metrics.
 
@@ -106,8 +127,9 @@ def compute_agreement(
     pred = df[predicted_col].values
     causal = df[causal_col].values
 
-    # 1. Spearman
+    # 1. Spearman + bootstrap CI
     rho, pval = stats.spearmanr(pred, causal)
+    ci_lo, ci_hi = _bootstrap_spearman_ci(pred, causal, n_boot=n_boot, rng_seed=rng_seed)
 
     # 2. Top-k overlap
     def _topk_overlap(k: int) -> float:
@@ -122,9 +144,23 @@ def compute_agreement(
     # 3. OLS
     slope, intercept, r, p_ols, _ = stats.linregress(pred, causal)
 
+    # 4. Real-episode hub split
+    n_real = 0
+    rho_real = float("nan")
+    if real_episode_nodes:
+        real_mask = df[id_col].isin(real_episode_nodes)
+        n_real = int(real_mask.sum())
+        if n_real >= 3:
+            rho_real, _ = stats.spearmanr(
+                df.loc[real_mask, predicted_col], df.loc[real_mask, causal_col]
+            )
+            rho_real = float(rho_real)
+
     return AgreementMetrics(
         spearman_rho=float(rho),
         spearman_pvalue=float(pval),
+        spearman_ci_lo=ci_lo,
+        spearman_ci_hi=ci_hi,
         top3_overlap=float(top3),
         top5_overlap=float(top5),
         ols_slope=float(slope),
@@ -132,7 +168,34 @@ def compute_agreement(
         ols_r_squared=float(r ** 2),
         ols_pvalue=float(p_ols),
         n_nodes=n,
+        n_real_nodes=n_real,
+        n_synth_nodes=n - n_real,
+        spearman_rho_real=rho_real,
     )
+
+
+def _bootstrap_spearman_ci(
+    pred: np.ndarray,
+    causal: np.ndarray,
+    *,
+    n_boot: int = 2_000,
+    rng_seed: int = 0,
+    alpha: float = 0.05,
+) -> tuple[float, float]:
+    """Bootstrap 95% CI for Spearman ρ (resample rows with replacement)."""
+    rng = np.random.default_rng(rng_seed)
+    n = len(pred)
+    boot_rhos = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        rho_b, _ = stats.spearmanr(pred[idx], causal[idx])
+        if np.isfinite(rho_b):
+            boot_rhos.append(rho_b)
+    if not boot_rhos:
+        return float("nan"), float("nan")
+    lo = float(np.quantile(boot_rhos, alpha / 2))
+    hi = float(np.quantile(boot_rhos, 1 - alpha / 2))
+    return lo, hi
 
 
 def find_divergence_case(

@@ -78,6 +78,8 @@ class CalibrationReport:
     tolerances: dict
     optimizer_result: Any = field(default=None, repr=False)
     elapsed_seconds: float = 0.0
+    convergence_ok: bool = True
+    n_de_restarts: int = 1
     _comparisons: list[MomentComparison] = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -175,9 +177,12 @@ class CalibrationReport:
     def to_markdown(self) -> str:
         df = self.comparisons_df()
         gate = "✅ PASS" if self.overall_pass else "❌ FAIL"
+        conv = "✅ converged" if self.convergence_ok else "⚠️ NOT converged — results fragile"
         lines = [
             f"# Calibration Report\n",
             f"**Gate: {gate}** ({self.n_passing}/{self.n_total} moments within tolerance)\n",
+            f"**DE convergence ({self.n_de_restarts} restarts):** {conv}\n",
+            f"**Identification:** 4 free params × 4 moments (just-identified; noise_trade_size fixed at $2k structural prior)\n",
             f"**Elapsed:** {self.elapsed_seconds:.0f}s\n",
             f"\n## Calibrated Parameters\n",
         ]
@@ -196,6 +201,9 @@ class CalibrationReport:
             "n_passing": self.n_passing,
             "n_total": self.n_total,
             "elapsed_seconds": self.elapsed_seconds,
+            "convergence_ok": self.convergence_ok,
+            "n_de_restarts": self.n_de_restarts,
+            "identification": "just-identified: 4 free params x 4 moments",
             "best_params": self.best_params,
             "simulated_moments": self.simulated_moments,
             "comparisons": [asdict(c) for c in self._comparisons],
