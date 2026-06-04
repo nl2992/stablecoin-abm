@@ -90,7 +90,9 @@ class ContagionNetwork:
     sigma: float = 0.0008             # idiosyncratic noise std
     common: float = 0.0015            # common market-factor std
     panic_gain: float = 0.0           # origin-driven confidence spillover (see below)
-    dt: float = 1.0
+    redemption_feedback: float = 0.0  # ENDOGENOUS adaptive redeemer: redemptions accelerate
+    redeem_thr: float = 0.01          #   nonlinearly once a coin is depegged past redeem_thr,
+    dt: float = 1.0                   #   worsening its own depeg (a self-reinforcing run)
     kappa_node: Optional[np.ndarray] = None  # optional per-node recovery (reserve strength)
 
     def __post_init__(self):
@@ -140,6 +142,13 @@ class ContagionNetwork:
                 panic = self.panic_gain * abs(prev[s_idx])
                 cur -= panic
                 cur[s_idx] += panic  # origin's own dynamics are its shock + recovery, not panic
+            # Endogenous adaptive redeemer: once a coin is depegged past redeem_thr, panic
+            # redemptions accelerate and push its price further from peg — a self-reinforcing
+            # run whose intensity RESPONDS to the state (the Lucas-critique channel).
+            if self.redemption_feedback > 0:
+                excess = np.maximum(np.abs(prev) - self.redeem_thr, 0.0)
+                # push a depegged coin FURTHER from peg (more negative when already negative)
+                cur += self.redemption_feedback * excess * np.sign(prev)
             if s_idx >= 0 and t == shock_step:
                 cur[s_idx] -= shock_size  # depeg the origin downward
             if p_idx >= 0:

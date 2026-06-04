@@ -103,6 +103,19 @@ def test_panic_channel_depegs_non_exposed_victims():
     assert np.abs(dp[:, 1]).max() < 0.1 * np.abs(d[:, 1]).max() + 1e-9
 
 
+def test_adaptive_redemption_amplifies_depeg():
+    nodes = ["O", "V"]
+    W = np.zeros((2, 2)); W[1, 0] = 1.0   # V receives from O
+    base = ContagionNetwork(nodes=nodes, W=W, coupling=0.05, kappa=0.01,
+                            common=0.0, sigma=0.0)
+    adapt = ContagionNetwork(nodes=nodes, W=W, coupling=0.05, kappa=0.01,
+                             common=0.0, sigma=0.0, redemption_feedback=0.03, redeem_thr=0.01)
+    d0 = base.simulate("O", 0.15, shock_step=20, n_steps=200, seed=0, noise=False)
+    d1 = adapt.simulate("O", 0.15, shock_step=20, n_steps=200, seed=0, noise=False)
+    # the adaptive redeemer pushes the victim FURTHER from peg (amplifies the depeg)
+    assert np.abs(d1[:, 1]).max() > np.abs(d0[:, 1]).max()
+
+
 def test_rl_env_step_contract():
     import numpy as np
     from stablesim.netcontagion.rl_env import RegulatorEnv
