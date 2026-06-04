@@ -1,14 +1,6 @@
-# Paper 2: Are Contagion Hubs Causal? A Calibrated Counterfactual Test
+# Paper 2 (standalone): Are contagion hubs causal? Calibrated counterfactual ABM
 
-**Compiled PDF: `main.pdf`** (built locally with TeX Live 2026 / `acmart`, 0 errors).
-
-Self-contained: `main.tex` + `figures/` + `references.bib`. ACM `sigconf` (`nonacm` draft mode).
-
-## Build
-```bash
-pdflatex main.tex && bibtex main && pdflatex main.tex && pdflatex main.tex
-```
-or upload this folder to Overleaf.
-
-Takes the GNN hub ranking (Paper 1) as input. Reproduce numbers with `../../reproduce.sh`
-(run the GNN repo's `reproduce.sh` first).
+ACM `sigconf` (`nonacm` draft mode). Self-contained: `main.tex` + `figures/` + `references.bib`.
+Build on Overleaf (upload this folder) or `pdflatex main.tex && bibtex main && pdflatex main.tex` x2.
+Takes the GNN hub ranking (Paper 1) as input. Reproduce with `../../stablecoin-abm/reproduce.sh`
+(run the GNN repo's reproduce.sh first).
