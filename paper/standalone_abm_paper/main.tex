@@ -199,6 +199,15 @@ intervention is essential: it isolates $X$'s effect \emph{on others} and removes
 big victim, simply by being excluded, would appear ``important.'' A venue that transmits to no one
 has $\Delta_X\approx 0$ no matter how central it looks; the crisis origin has the largest $\Delta$.
 
+\paragraph{Experimental protocol.} Each simulated episode runs for 250 steps (one step
+$\approx5$ minutes, so the horizon spans the crisis and its recovery), with the shock applied at step
+40 after a calm warm-up. We compute the causal effect $\Delta_X$ on the deterministic propagation, and
+all stochastic moments (volatility, cross-venue correlation) as medians over many noisy seeds. The
+intervention sweep and the robustness draws (\S\ref{sec:robust}) re-run this same episode under each
+modification, so every comparison holds the shock, the network, and the horizon fixed and varies only
+the quantity under study. This isolates the effect of interest and makes the percentage figures we
+report directly comparable.
+
 \paragraph{Tracing the cascade.} It is worth following the mechanism concretely. The shock hits USDC.
 Because DAI holds USDC as collateral, the edge $W_{\text{DAI},\text{USDC}}$ carries USDC's stress into
 DAI, which depegs in turn; the origin-driven panic term $\pi|d_{\text{USDC}}|$ simultaneously nudges
@@ -249,7 +258,30 @@ Under this balance-sheet network the model still calibrates to all four moments,
 regardless of how central it looks in a correlation graph. The estimated-network and balance-sheet
 analyses agree (BUSD inert, origin dominant in both), so the conclusion does not depend on how the
 network is derived. This is the strongest form of the result: BUSD is spurious not as a statistical
-accident but as a balance-sheet fact.
+accident but as a balance-sheet fact. Table~\ref{tab:params} reports the calibrated parameters for
+the two versions side by side: they reach the same moments with similar dynamics and deliver the same
+verdict, which is the concordance underpinning the claim.
+
+\begin{table}[t]
+\caption{Calibrated parameters for the two model versions---network estimated from prices, vs network
+read off the documented balance sheet. Both reproduce all four moments and yield the same causal
+verdict.}
+\label{tab:params}
+\small
+\begin{tabular}{lrr}
+\toprule
+parameter & estimated $W$ & documented $W$ \\
+\midrule
+transmission gain $c$ & 0.022 & 0.029 \\
+recovery $\kappa$ (half-life 116) & 0.006 & 0.006 \\
+panic $\pi$ & 0.0028 & 0.0045 \\
+shock $s$ & 0.103 & 0.119 \\
+\midrule
+USDC causal rank & 1st & 1st \\
+BUSD causal effect & 0 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{figure}[t]
 \centering
@@ -460,6 +492,17 @@ high model attention. But co-movement driven by a coin's \emph{own} idiosyncrati
 nothing to others---precisely the case the knockout is built to detect, and precisely why the balance
 sheet (no one holds BUSD) is the decisive tie-breaker.
 
+\paragraph{Relation to network systemic-risk measures.} Our knockout is, in spirit, a counterfactual
+cousin of the centrality measures used in network finance. DebtRank and its relatives~\cite{battiston2012debtrank}
+score a node by how much distress propagates from it through a \emph{known} exposure network; they are
+powerful precisely because that network is given. Our setting inverts the difficulty: the exposure
+network for stablecoins is not cleanly observed in real time, so a practitioner is tempted to substitute
+a \emph{price-derived} network (correlation, attention), which silently swaps a causal object for a
+correlational one. The contribution of the knockout is to make that substitution's cost visible, and the
+contribution of the balance-sheet variant is to show that the genuinely causal object---who holds whom as
+reserves---is recoverable from disclosures after all. Read this way, our paper is an argument for putting
+documented exposure, not estimated centrality, at the centre of stablecoin systemic-risk measurement.
+
 \paragraph{Practical takeaway for supervisors.} A reserve-transparency or backstop programme guided by
 a correlational contagion ranking would, in this episode, have spent its capacity on a venue with no
 systemic role. The same capacity directed by the causal ranking---or, equivalently here, by the
@@ -467,102 +510,46 @@ documented reserve-exposure network---would have fully contained the cascade. Wh
 the balance-sheet network is both cheaper to compute (it needs no price data) and, in our tests, the
 better causal guide.
 
-\section{Limitations and threats to validity}
-Our model is a calibrated reduced form, not a fully microfounded market; two of our episodes are too
-sparse to analyze causally. We address the most natural objections directly. \emph{Circularity}: the
-estimated network is derived from prices, so we rebuild it from documented reserve holdings and obtain
-the same answer (\S\ref{sec:exposure}). \emph{Calibration fragility}: we perturb the calibration by
-$\pm30\%$ and the ranking is unchanged (\S\ref{sec:robust}). \emph{Over-mechanical agents}: we add
-strategic, adaptive agents and the ranking holds (\S\ref{sec:robust}). \emph{Method self-fulfilment}:
-a synthetic placebo with known ground truth shows the knockout recovers true transmitters and zeroes a
-planted co-mover. The residual threat we cannot fully remove is that all causal statements are
-model-based (in the structural / interventionist sense) rather than the output of a randomized
-experiment, which is unavailable for historical crises; the convergence of four independent checks and
-the balance-sheet confirmation is the strongest evidence the setting allows. Finally, $n=7$ episodes is
-small; the load-bearing claim is therefore the single, sharply identified BUSD refutation, not a
-population statistic across crises.
+\section{Limitations}
+Our model is a calibrated reduced form, not a fully microfounded market, and two of our episodes are
+too sparse to analyze causally. We have tried to meet the natural objections head-on rather than in
+passing: \emph{circularity} (the estimated network is re-derived from documented reserves, with the
+same answer), \emph{calibration fragility} (the ranking survives $\pm30\%$ perturbation),
+\emph{over-mechanical agents} (it survives strategic, adaptive agents), and \emph{method
+self-fulfilment} (a synthetic placebo with known ground truth shows the knockout recovers
+transmitters and zeroes a planted co-mover). The residual threat we cannot remove is that all causal
+statements are model-based, in the structural sense, rather than the output of a randomized
+experiment, which is unavailable for historical crises; the convergence of the four checks and the
+balance-sheet confirmation is the strongest evidence the setting allows. With $n=7$ episodes, the
+load-bearing claim is the single, sharply identified BUSD refutation, not a population statistic.
 
-\section{Broader impact and regulatory considerations}
-Our central message is cautionary in a way that bears directly on policy. As supervisors operationalise
-the GENIUS Act and MiCA, they will need tools to decide where to focus reserve-transparency
-requirements and, in a crisis, where to deploy a limited backstop. It is tempting to let a
-data-driven contagion ranking make that call. We show concretely that a \emph{correlational} ranking
-can send the entire budget to a venue with no systemic role: in the SVB episode it points at BUSD,
-which transmitted nothing, while the venue that actually mattered (USDC, and its collateral link to
-DAI) is the one a causal analysis---or simply the reserve-exposure balance sheet---identifies. The
-practical recommendation is therefore conservative and, we think, robust: when the stakes are an
-intervention, validate a contagion ranking against a causal counterfactual, and where the two
-disagree, prefer the documented exposure network, which is transparent, auditable, and needs no
-market data. A second consideration is that any such model could in principle be gamed---an issuer
-aware that supervisory attention follows centrality might trade so as to appear peripheral; grounding
-the analysis in mandatory reserve disclosures rather than in price-derived centrality is the natural
-defence. We release all code so that the analysis can be audited and re-run on new disclosures.
-
-\section{Future work}
-The most valuable extension is to replace the estimated transmission network entirely with a
-\emph{measured} balance-sheet network compiled from on-chain reserve disclosures and proof-of-reserve
-attestations across the whole stablecoin universe. Such a network would make every causal statement
-mechanical rather than inferred, and would let a supervisor compute the causal ranking continuously,
-before any crisis, from public disclosures alone---our predictive-causality result already hints that
-this static, documented quantity is the better guide. A second direction is to close the loop with the
-companion predictor: use the causal verdict as a training signal, regularising the graph model toward
-transmission structure that actually causes spread, so that its hub ranking and the causal ranking
-converge. Finally, scaling from our seven historical episodes toward a continuously updated panel of
-stress events would turn the single sharp BUSD refutation into a population-level study of how often,
-and why, correlational hubs mislead.
+Three threats to \emph{external} validity deserve a clear statement. First, we hold the transmission
+network fixed within an episode; in a crisis that ran long enough for venues to actively rewire their
+reserves, the causal ranking would itself become time-varying, and a single knockout would understate
+the danger of a node that becomes central only mid-cascade. Second, our calibration targets are
+second moments (volatility, cross-venue correlation, peg-recovery half-life) rather than the full
+joint distribution of returns, so a mechanism that leaves those moments unchanged but alters tail
+behaviour would be invisible to our fit; the near-critical regime we identify is the most this level
+of calibration can pin down. Third, the balance-sheet network that makes our causal object observable
+relies on reserve disclosures that are, today, neither universal nor uniformly audited---the very
+GENIUS Act and MiCA regimes we invoke are what would make this input dependable at scale. None of
+these overturns the BUSD result, which is identified by the documented reserve structure of the
+specific episode; they instead mark the boundary of where the method can be trusted without new data.
 
 \section{Conclusion}
 Contagion hub rankings are correlational, and in the marquee SVB crisis the top-ranked hub causes
 \emph{no} contagion---because, as the balance sheet confirms, no stablecoin's peg depended on it. A
 calibrated, intervenable model supplies the causal test that centrality cannot, and the disagreement
 is decisive for policy: acting on the correlational hub wastes the entire budget that the causal
-target would have spent to contain the cascade. Contagion analytics intended to guide intervention
-should report \emph{validated causation}, not centrality alone.
-
-\paragraph{Reproducibility.} Every number above is produced by committed scripts; a single
-\texttt{reproduce.sh} regenerates all results and figures end-to-end.
-
-\appendix
-\section{Reproducibility details}
-The full causal pipeline runs from one script, after the companion predictor has exported its hub
-ranking and calibration targets:
-\begin{quote}\small\ttfamily
-python scripts/run\_netcontagion\_join.py \\
-python scripts/run\_exposure\_join.py \\
-python scripts/run\_intervention\_sweep.py \\
-python scripts/run\_multi\_episode\_join.py \\
-python scripts/run\_robustness\_welfare.py \\
-python scripts/run\_placebo\_control.py \\
-python scripts/run\_adaptive\_robustness.py \\
-python scripts/run\_two\_agent\_robustness.py \\
-python scripts/run\_rl\_regulator.py
-\end{quote}
-Table~\ref{tab:params} lists the calibrated parameters for both versions of the model---the one whose
-network is estimated from prices and the one whose network is the documented balance sheet. That the
-two calibrate to the same moments with similar dynamics parameters, and yield the same causal verdict,
-is the concordance that underpins our central claim. Per-draw robustness distributions, the full
-intervention sweep, the welfare matrix, and the multi-episode results are all emitted as CSVs, and the
-causal knockout, the exposure network, and the placebo control are unit-tested.
-
-\begin{table}[t]
-\caption{Calibrated parameters for the two model versions. Both reproduce all four moments; both put
-the origin first and BUSD at zero.}
-\label{tab:params}
-\small
-\begin{tabular}{lrr}
-\toprule
-parameter & estimated $W$ & documented $W$ \\
-\midrule
-transmission gain $c$ & 0.022 & 0.029 \\
-recovery $\kappa$ (half-life 116) & 0.006 & 0.006 \\
-panic $\pi$ & 0.0028 & 0.0045 \\
-shock $s$ & 0.103 & 0.119 \\
-\midrule
-USDC causal rank & 1st & 1st \\
-BUSD causal effect & 0 & 0 \\
-\bottomrule
-\end{tabular}
-\end{table}
+target would have spent to contain the cascade. As supervisors operationalise the GENIUS Act and MiCA,
+the practical recommendation is conservative and, we think, robust: when the stakes are an
+intervention, validate a contagion ranking against a causal counterfactual, and where the two
+disagree, prefer the documented reserve-exposure network, which is transparent, auditable, needs no
+market data, and---our predictive-causality result suggests---can be computed continuously before any
+crisis. The most valuable extension is to compile that exposure network at scale from on-chain reserve
+disclosures across the whole stablecoin universe, making every causal statement mechanical rather than
+inferred. All results and figures are regenerated by a single committed script. Contagion analytics
+intended to guide intervention should report \emph{validated causation}, not centrality alone.
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{references}
