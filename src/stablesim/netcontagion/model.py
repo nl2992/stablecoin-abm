@@ -92,7 +92,11 @@ class ContagionNetwork:
     panic_gain: float = 0.0           # origin-driven confidence spillover (see below)
     redemption_feedback: float = 0.0  # ENDOGENOUS adaptive redeemer: redemptions accelerate
     redeem_thr: float = 0.01          #   nonlinearly once a coin is depegged past redeem_thr,
-    dt: float = 1.0                   #   worsening its own depeg (a self-reinforcing run)
+                                      #   worsening its own depeg (a self-reinforcing run)
+    arb_strength: float = 0.0         # STRATEGIC arbitrageur: buys a depegged coin (restoring
+    arb_thr: float = 0.005            #   force toward peg) once |d| > arb_thr, but capital-capped
+    arb_cap: float = 0.02             #   so it corrects small depegs yet is overwhelmed by large
+    dt: float = 1.0                   #   ones (limits-to-arbitrage). Competes with the redeemer.
     kappa_node: Optional[np.ndarray] = None  # optional per-node recovery (reserve strength)
 
     def __post_init__(self):
@@ -149,6 +153,13 @@ class ContagionNetwork:
                 excess = np.maximum(np.abs(prev) - self.redeem_thr, 0.0)
                 # push a depegged coin FURTHER from peg (more negative when already negative)
                 cur += self.redemption_feedback * excess * np.sign(prev)
+            # Strategic arbitrageur: a capital-capped restoring force toward peg. It corrects
+            # small depegs but is overwhelmed by large ones (limits to arbitrage), the
+            # stabilising counterpart to the destabilising redeemer.
+            if self.arb_strength > 0:
+                a_excess = np.maximum(np.abs(prev) - self.arb_thr, 0.0)
+                a_force = np.minimum(self.arb_strength * a_excess, self.arb_cap)
+                cur -= a_force * np.sign(prev)   # pushes back toward peg
             if s_idx >= 0 and t == shock_step:
                 cur[s_idx] -= shock_size  # depeg the origin downward
             if p_idx >= 0:

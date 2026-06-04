@@ -116,6 +116,18 @@ def test_adaptive_redemption_amplifies_depeg():
     assert np.abs(d1[:, 1]).max() > np.abs(d0[:, 1]).max()
 
 
+def test_arbitrageur_damps_depeg():
+    nodes = ["O", "V"]
+    W = np.zeros((2, 2)); W[1, 0] = 1.0
+    base = ContagionNetwork(nodes=nodes, W=W, coupling=0.05, kappa=0.01, common=0.0, sigma=0.0)
+    arb = ContagionNetwork(nodes=nodes, W=W, coupling=0.05, kappa=0.01, common=0.0, sigma=0.0,
+                           arb_strength=0.5, arb_thr=0.005, arb_cap=0.02)
+    d0 = base.simulate("O", 0.15, shock_step=20, n_steps=200, seed=0, noise=False)
+    d1 = arb.simulate("O", 0.15, shock_step=20, n_steps=200, seed=0, noise=False)
+    # the stabilising arbitrageur reduces the victim's peak depeg
+    assert np.abs(d1[:, 1]).max() < np.abs(d0[:, 1]).max()
+
+
 def test_rl_env_step_contract():
     import numpy as np
     from stablesim.netcontagion.rl_env import RegulatorEnv
