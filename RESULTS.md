@@ -79,6 +79,27 @@ picking by the ABM's **causal** ranking protects **USDC → 100% reduction**. Th
 concrete cost of acting on correlation instead of causation — directly relevant to
 reserve-transparency and intervention design under the GENIUS Act / MiCA.
 
+## Generalization, robustness, and a learning regulator
+
+**Multi-episode** (`run_multi_episode_join.py`, `multi_episode_join.csv`). Across the 3
+contagion-producing episodes, the GNN's top hub *equals* the ABM causal driver in Terra
+(1/3) but *diverges* with a spurious hub in SVB (BUSD) and USDT-May-2022 (2/3). Correlational
+hub rankings are **unreliable** — sometimes right, sometimes badly wrong — so the causal test
+is required. (2 thin episodes with ~0 contagion are excluded.)
+
+**Robustness** (`run_robustness_welfare.py`, `robustness_summary.json`). Under ±30%
+perturbation of (coupling, κ, W) across 60 draws, USDC stays the top causal node **100%** of
+the time and BUSD stays causally inert **100%** — the headline is not a calibration artifact.
+
+**Welfare matrix** (`welfare_matrix.csv`): protecting BUSD is *identical* to no intervention;
+protecting USDC takes every victim's peak depeg to 0; reserve-strengthening USDC ×10 cuts
+DAI's depeg from 0.138 → 0.029.
+
+**RL regulator** (`run_rl_regulator.py`, `rl_regulator.json`). A PPO agent given only the
+transmission-network features (no causal labels) learns to allocate reserve budget
+**USDC 1.0 / DAI 0.48 / BUSD 0.0**, achieving **93.7%** contagion reduction — independently
+rediscovering the causal targets and ignoring the spurious correlational hub.
+
 ## Honest limitations
 
 - The directed network W is estimated from 1-min lead-lag, which can over-credit thinly
