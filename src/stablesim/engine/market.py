@@ -36,11 +36,23 @@ class MultiVenueMarket:
         redemption: RedemptionChannel | None = None,
         reserve: ReserveModel | None = None,
         rng: np.random.Generator | None = None,
+        contagion_coupling: float = 0.0,
+        common_flow_vol: float = 0.0,
     ) -> None:
         self.pools = pools or [StableswapAMM()]
         self.redemption = redemption or RedemptionChannel()
         self.reserve = reserve or ReserveModel()
         self.rng = rng or np.random.default_rng()
+        # Fraction of a venue-0 shock that transmits DIRECTLY to other venues
+        # (cross-venue information/flow channel, beyond arbitrage). Controls the
+        # empirical cross-venue correlation moment.
+        self.contagion_coupling = float(contagion_coupling)
+        # Common (market-wide) order-flow factor: each step a single signed flow is
+        # applied in the SAME direction to every venue. This is the shared "value"
+        # innovation that makes venues co-move (positive cross-venue correlation) and
+        # is the dominant source of baseline price volatility. Without it the only
+        # cross-venue link is arbitrage, which anti-correlates venues (a spread trade).
+        self.common_flow_vol = float(common_flow_vol)
         self.step_count = 0
         self._history: list[dict] = []
 
@@ -74,6 +86,22 @@ class MultiVenueMarket:
         """
         self.reserve.step()
 
+        # Common market-wide flow (shared value innovation) — same direction on all pools.
+        # Mean-reverting (OU-like) so it supplies baseline volatility + cross-venue
+        # co-movement WITHOUT random-walking pool inventory to infinity: the flow has a
+        # random innovation plus a pull back toward peg proportional to current deviation.
+        if self.common_flow_vol > 0:
+            dev = self.mid_price() - 1.0
+            f = float(self.rng.normal(0.0, self.common_flow_vol)) - 0.5 * dev
+            for pool in self.pools:
+                try:
+                    if f > 0:
+                        pool.swap_x_for_y(min(f, 0.2) * pool.x)
+                    elif f < 0:
+                        pool.swap_y_for_x(min(-f, 0.2) * pool.y)
+                except Exception:
+                    pass
+
         if shock is not None:
             self._apply_shock(shock)
 
@@ -92,23 +120,28 @@ class MultiVenueMarket:
         pool_idx = getattr(shock, "pool_idx", 0)
         pool = self.pools[pool_idx]
 
-        if kind == "sell_pressure":
-            # Force-sell stablecoin into pool (drives price down)
-            amount = shock.magnitude * pool.x
-            try:
-                pool.swap_x_for_y(amount)
-            except Exception:
-                pass
-        elif kind == "buy_pressure":
-            amount = shock.magnitude * pool.y
-            try:
-                pool.swap_y_for_x(amount)
-            except Exception:
-                pass
-        elif kind == "liquidity_removal":
-            frac = min(shock.magnitude, 0.99)
-            pool.remove_liquidity(frac)
-        elif kind == "reserve_drop":
+        # Build the list of (pool, magnitude) to shock: the target pool at full
+        # magnitude, plus every other pool at coupling x magnitude (cross-venue channel).
+        targets = [(pool, shock.magnitude)]
+        if self.contagion_coupling > 0 and kind in ("sell_pressure", "buy_pressure", "liquidity_removal"):
+            for k, other in enumerate(self.pools):
+                if k != pool_idx:
+                    targets.append((other, shock.magnitude * self.contagion_coupling))
+
+        for tgt, mag in targets:
+            if kind == "sell_pressure":
+                try:
+                    tgt.swap_x_for_y(mag * tgt.x)
+                except Exception:
+                    pass
+            elif kind == "buy_pressure":
+                try:
+                    tgt.swap_y_for_x(mag * tgt.y)
+                except Exception:
+                    pass
+            elif kind == "liquidity_removal":
+                tgt.remove_liquidity(min(mag, 0.99))
+        if kind == "reserve_drop":
             self.reserve.ratio = max(0.0, self.reserve.ratio - shock.magnitude)
 
     def _snapshot(self, settled: list[dict]) -> dict:

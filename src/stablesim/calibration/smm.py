@@ -52,17 +52,20 @@ from ..scenarios.schedule import ShockSchedule
 # Parameter space — 4 free + 1 fixed
 
 PARAM_NAMES = [
-    "pool_amp",        # stableswap amplification; identified by contagion magnitude + OU half-life
-    "noise_size",      # mean noise-trade size (USD); identified by baseline price vol
-    "shock_scale",     # multiplies scenario shock magnitude; identified by contagion magnitude
-    "reserve_speed",   # OU kappa for backing ratio; identified by calm OU half-life
+    "pool_amp",            # stableswap amplification; identified by contagion magnitude
+    "common_flow_vol",     # shared market-flow std (per step); identified by baseline vol + cross-venue rho
+    "shock_scale",         # multiplies scenario shock magnitude; identified by contagion magnitude
+    "reserve_speed",       # OU kappa for backing ratio; identified by calm OU half-life
+    "contagion_coupling",  # cross-venue direct transmission fraction; raises cross-venue rho
 ]
 
 PARAM_BOUNDS = [
-    (8.0, 150.0),          # pool_amp
-    (200.0, 25_000.0),     # noise_size (USD)
+    (25.0, 150.0),         # pool_amp (>=25: below this the peg is so loose the depeg
+                           #           magnitude blows up and becomes seed-unstable)
+    (0.0002, 0.02),        # common_flow_vol (per-step shared-flow std, fraction of pool)
     (0.5, 8.0),            # shock_scale
     (0.02, 0.60),          # reserve_speed
+    (0.0, 0.95),           # contagion_coupling
 ]
 
 
@@ -78,9 +81,9 @@ def _params_to_dict(params: np.ndarray) -> dict:
 
 
 def _episode_kwargs(params: np.ndarray) -> dict:
-    amp, noise_size, shock_scale, reserve_speed = params.tolist()
-    return dict(pool_amp=amp, noise_size=noise_size, shock_scale=shock_scale,
-                reserve_speed=reserve_speed)
+    amp, common_flow_vol, shock_scale, reserve_speed, coupling = params.tolist()
+    return dict(pool_amp=amp, common_flow_vol=common_flow_vol, shock_scale=shock_scale,
+                reserve_speed=reserve_speed, contagion_coupling=coupling)
 
 
 def _simulate_moments(
@@ -108,12 +111,28 @@ def _simulate_moments(
         df_k = r_crisis["history"]
         crisis_magnitudes.append(float(df_k["depeg"].abs().max()))
 
-        # Cross-venue ρ̂ from pool_states (if ≥ 2 pools recorded)
+        # Cross-venue ρ̂: correlation of the two venues' prices DURING the contagion
+        # window only (steps where the mid-price is meaningfully off peg). The empirical
+        # target is a crisis-period FEVD/TVP-VAR comove; computing over the whole run
+        # would be dominated by idiosyncratic calm-period noise and understate it.
         if "pool_states" in df_k.columns and len(df_k) > 5:
             try:
-                p0 = [s[0]["price"] for s in df_k["pool_states"]]
-                p1 = [s[-1]["price"] for s in df_k["pool_states"]]
-                rho = float(np.corrcoef(p0, p1)[0, 1])
+                p0 = np.array([s[0]["price"] for s in df_k["pool_states"]])
+                p1 = np.array([s[-1]["price"] for s in df_k["pool_states"]])
+                # Correlation of one-step RETURNS during the contagion window — this is
+                # what FEVD/TVP-VAR measures (co-movement of shocks across venues), and
+                # it is not confounded by the slow arb re-alignment of price LEVELS.
+                d0, d1 = np.diff(p0), np.diff(p1)
+                mid_dev = np.abs((p0[1:] + p1[1:]) / 2.0 - 1.0)
+                peak = mid_dev.max()
+                win = mid_dev > max(0.2 * peak, 1e-4) if peak > 0 else np.zeros_like(mid_dev, bool)
+                sel = d0[win], d1[win]
+                if win.sum() >= 5 and np.std(sel[0]) > 0 and np.std(sel[1]) > 0:
+                    rho = float(np.corrcoef(sel[0], sel[1])[0, 1])
+                elif np.std(d0) > 0 and np.std(d1) > 0:
+                    rho = float(np.corrcoef(d0, d1)[0, 1])
+                else:
+                    rho = 0.0
                 cross_rhos.append(rho if np.isfinite(rho) else 0.0)
             except Exception:
                 cross_rhos.append(0.0)
@@ -158,9 +177,14 @@ class SMMCalibrator:
         self.n_de_restarts = n_de_restarts
 
         scenarios = load_stressbench_scenarios()
+        # Prefer a single-asset depeg scenario for SVB-style calibration; the
+        # multi-event "ust_style_bank_run" is too severe (it drains the pool and the
+        # peak-depeg moment saturates the clamp).
+        _preferred = "usdc_circuit_breaker"
         self._shock = next(
-            (s for s in scenarios if s.name not in ("no_shock_baseline", "baseline")),
-            scenarios[0],
+            (s for s in scenarios if s.name == _preferred),
+            next((s for s in scenarios if s.name not in ("no_shock_baseline", "baseline")),
+                 scenarios[0]),
         )
         self._baseline = next(
             (s for s in scenarios if s.name in ("no_shock_baseline", "baseline")),

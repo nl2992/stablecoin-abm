@@ -85,7 +85,13 @@ class StableswapAMM:
         D3 = self._D ** 3
         dFdx = 4.0 * self.amp + D3 / (4.0 * self.x ** 2 * self.y)
         dFdy = 4.0 * self.amp + D3 / (4.0 * self.x * self.y ** 2)
-        return dFdx / dFdy
+        p = dFdx / dFdy
+        # Clamp to a finite band: when a pool is nearly drained the marginal price
+        # diverges (p ~ 1/x), which is numerically meaningless for a stablecoin venue.
+        # Real depegs stay well inside this band; the clamp only kills blow-ups.
+        if not np.isfinite(p):
+            return 0.1
+        return float(min(max(p, 0.1), 10.0))
 
     def swap_x_for_y(self, dx: float) -> float:
         """Swap dx units of x into y.  Returns dy received (net of fee)."""

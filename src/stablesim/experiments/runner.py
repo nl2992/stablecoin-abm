@@ -28,6 +28,8 @@ def run_episode(
     noise_size: float = 1_000.0,
     shock_scale: float = 1.0,
     reserve_speed: float | None = None,
+    contagion_coupling: float = 0.0,
+    common_flow_vol: float = 0.0,
 ) -> dict:
     """Run one episode and return outcome metrics.
 
@@ -47,14 +49,20 @@ def run_episode(
     if reserve_speed is not None:
         reserve_kw["speed"] = reserve_speed
 
-    # Shallower default pool ($200k) so noise trades and shocks actually move the
-    # mid-price — a $1M pool at amp 100 absorbs realistic flow and yields ~0 vol.
-    pools = [StableswapAMM(reserves=(100_000.0, 100_000.0), amp=pool_amp)]
+    # TWO venues: the cross-venue arbitrageur only acts when >=2 pools exist, so a
+    # single pool silently disables all peg-restoring arbitrage. Two coupled pools also
+    # give the cross-venue correlation moment. Shocks hit pool 0; arb (capital-capped)
+    # partially transmits stress to pool 1 -> realistic contagion + partial cross-venue rho.
+    # Shallow ($50k) pools so realistic flow and shocks move the mid-price.
+    pools = [StableswapAMM(reserves=(50_000.0, 50_000.0), amp=pool_amp),
+             StableswapAMM(reserves=(50_000.0, 50_000.0), amp=pool_amp)]
     market = MultiVenueMarket(
         pools=pools,
         redemption=RedemptionChannel(**kw["redemption"]),
         reserve=ReserveModel(rng=rng, **reserve_kw),
         rng=rng,
+        contagion_coupling=contagion_coupling,
+        common_flow_vol=common_flow_vol,
     )
 
     lp_subsidy = kw.get("lp_subsidy_rate", 0.0)

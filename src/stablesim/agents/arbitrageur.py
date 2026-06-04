@@ -34,8 +34,8 @@ class Arbitrageur(BaseAgent):
         self,
         agent_id: str,
         wealth: float = 100_000.0,
-        min_spread: float = 0.001,
-        max_trade_frac: float = 0.10,
+        min_spread: float = 0.002,
+        max_trade_frac: float = 0.05,
         policy=None,
     ) -> None:
         super().__init__(agent_id, wealth)
