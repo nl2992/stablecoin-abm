@@ -125,29 +125,30 @@ def _plot(df, path):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(figsize=(7, 5))
+    import paper_style as ps
+    ps.apply()
+    fig, ax = plt.subplots(figsize=ps.TALL)
     for _, r in df.iterrows():
         if r["is_planted_spurious"]:
-            c, mk = "#b2182b", "X"
+            c, mk = ps.RED, "X"
         elif r["is_true_transmitter"]:
-            c, mk = "#1a9850", "o"
+            c, mk = ps.GREEN, "o"
         else:
-            c, mk = "#888888", "s"
+            c, mk = ps.GREY, "s"
         ax.scatter(r["corr_centrality"], r["causal_delta_true_W"], s=170, c=c,
                    marker=mk, edgecolor="k", lw=0.5, zorder=3)
         ax.annotate(r["node"], (r["corr_centrality"], r["causal_delta_true_W"]),
                     fontsize=9, xytext=(5, 4), textcoords="offset points")
     ax.axhline(0, color="k", lw=0.5, ls=":")
     ax.set_xlabel("Correlation centrality (what a GNN hub score rewards)")
-    ax.set_ylabel("Causal Δ-contagion (knockout, recovered W)")
-    ax.set_title("Placebo control: planted spurious co-mover (SPUR) is a top correlational\n"
-                 "hub but has ~0 causal effect — the method recovers ground truth")
+    ax.set_ylabel("Causal effect (knockout, recovered W)")
+    ax.set_title("Placebo control: the method recovers ground truth")
     from matplotlib.lines import Line2D
     ax.legend(handles=[
-        Line2D([0], [0], marker="o", color="w", markerfacecolor="#1a9850", label="true transmitter", markersize=10),
-        Line2D([0], [0], marker="X", color="w", markerfacecolor="#b2182b", label="planted spurious", markersize=11),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=ps.GREEN, label="true transmitter", markersize=10),
+        Line2D([0], [0], marker="X", color="w", markerfacecolor=ps.RED, label="planted spurious", markersize=11),
     ], fontsize=9)
-    ax.grid(alpha=0.3)
+    ax.grid(alpha=0.25)
     fig.tight_layout(); fig.savefig(path, dpi=200); plt.close(fig)
     print("figure ->", path)
 

@@ -126,18 +126,22 @@ def _plot(dd, nodes, origin, summary, path):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    import paper_style as ps
+    ps.apply()
     cols = [n for n in nodes if n != origin] + ["__origin__"]
     labels = [c.split("/")[0] if c != "__origin__" else "USDC*" for c in cols]
     data = [dd[c].values for c in cols if c in dd.columns]
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.boxplot(data, labels=[labels[i] for i, c in enumerate(cols) if c in dd.columns],
-               showfliers=False)
-    ax.set_ylabel("Causal Δ-contagion")
-    ax.set_title(f"Causal ranking is robust to ±30% calibration uncertainty\n"
-                 f"(origin top in {summary['origin_is_top_causal_frac']:.0%} of draws, "
-                 f"BUSD inert in {summary['busd_inert_frac']:.0%})")
+    fig, ax = plt.subplots(figsize=ps.SINGLE)
+    bp = ax.boxplot(data, labels=[labels[i] for i, c in enumerate(cols) if c in dd.columns],
+                    showfliers=False, patch_artist=True)
+    for patch in bp["boxes"]:
+        patch.set_facecolor(ps.BLUE); patch.set_alpha(0.6)
+    for med in bp["medians"]:
+        med.set_color(ps.INK)
+    ax.set_ylabel("Causal effect (knockout)")
+    ax.set_title("Causal ranking is robust to calibration uncertainty")
     ax.axhline(0, color="k", lw=0.5, ls=":")
-    ax.grid(axis="y", alpha=0.3)
+    ax.grid(axis="y", alpha=0.25)
     fig.tight_layout(); fig.savefig(path, dpi=200); plt.close(fig)
     print("figure ->", path)
 

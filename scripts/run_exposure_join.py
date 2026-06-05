@@ -156,19 +156,21 @@ def _plot(cf, out_exp, gnn_top, path):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(figsize=(7.5, 5))
+    import paper_style as ps
+    ps.apply()
+    fig, ax = plt.subplots(figsize=ps.TALL)
     for _, r in cf.iterrows():
         nd = r["node"]
-        c = "#b2182b" if nd == gnn_top else "#3182bd"
+        c = ps.RED if nd == gnn_top else ps.BLUE
         ax.scatter(r["gnn_predicted_importance"], r["out_exposure"], s=180,
                    c=c, marker="X" if nd == gnn_top else "o", edgecolor="k", lw=0.5, zorder=3)
         ax.annotate(nd, (r["gnn_predicted_importance"], r["out_exposure"]),
                     fontsize=9, xytext=(5, 4), textcoords="offset points")
     ax.set_xlabel("GNN predicted importance (correlational hub score)")
     ax.set_ylabel("Documented out-exposure\n(others' reserves backed by this asset)")
-    ax.set_title("The GNN's top hub (BUSD) has the HIGHEST predicted importance\n"
-                 "but ZERO documented systemic exposure → mechanically spurious")
-    ax.grid(alpha=0.3)
+    ax.set_title("Top hub BUSD has the highest predicted importance\n"
+                 "but zero documented systemic exposure")
+    ax.grid(alpha=0.25)
     fig.tight_layout(); fig.savefig(path, dpi=200); plt.close(fig)
     print("figure ->", path)
 

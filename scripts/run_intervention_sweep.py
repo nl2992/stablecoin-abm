@@ -124,30 +124,32 @@ def _plot(df, policy, base, path):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    import paper_style as ps
+    ps.apply()
+    fig, axes = plt.subplots(1, 2, figsize=ps.WIDE)
 
     # left: best intensity per intervention family
     fam = (df.sort_values("pct_reduction", ascending=False)
              .groupby("intervention").first().reset_index()
              .sort_values("pct_reduction"))
-    axes[0].barh(fam["intervention"], fam["pct_reduction"], color="#2166ac")
+    axes[0].barh(fam["intervention"], fam["pct_reduction"], color=ps.BLUE)
     for y, (_, r) in enumerate(fam.iterrows()):
         axes[0].text(r["pct_reduction"] + 1, y, f'{r["target"]}/{r["intensity"]}',
                      va="center", fontsize=8)
     axes[0].set_xlabel("Contagion reduction (%)")
-    axes[0].set_title("Best contagion reduction by intervention family")
-    axes[0].grid(axis="x", alpha=0.3)
+    axes[0].set_title("Best reduction by intervention family")
+    axes[0].grid(axis="x", alpha=0.25)
 
     # right: the policy punchline
     picks = [f'GNN hub\n({policy["gnn_correlational_pick"].split("/")[0]})',
              f'ABM causal\n({policy["abm_causal_pick"].split("/")[0]})']
     vals = [policy["gnn_pick_contagion_reduction_pct"], policy["abm_pick_contagion_reduction_pct"]]
-    axes[1].bar(picks, vals, color=["#b2182b", "#1a9850"])
+    axes[1].bar(picks, vals, color=[ps.RED, ps.GREEN])
     for i, v in enumerate(vals):
         axes[1].text(i, v + 1, f"{v:.0f}%", ha="center", fontsize=11, fontweight="bold")
     axes[1].set_ylabel("Contagion reduction (%)")
-    axes[1].set_title("Budget-constrained protection:\ncorrelational hub vs causal pick")
-    axes[1].set_ylim(0, 105); axes[1].grid(axis="y", alpha=0.3)
+    axes[1].set_title("One-venue budget: correlational hub vs causal pick")
+    axes[1].set_ylim(0, 105); axes[1].grid(axis="y", alpha=0.25)
     fig.tight_layout(); fig.savefig(path, dpi=200); plt.close(fig)
     print("figure ->", path)
 

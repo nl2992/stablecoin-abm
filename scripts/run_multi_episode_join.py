@@ -170,24 +170,26 @@ def _plot(results, path):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    fig, axes = plt.subplots(1, len(results), figsize=(3.2 * len(results), 3.6), squeeze=False)
+    import paper_style as ps
+    ps.apply()
+    fig, axes = plt.subplots(1, len(results), figsize=(3.15 * len(results), 3.5), squeeze=False)
     for ax, r in zip(axes[0], results):
         det = r["_detail"]
         for nd, d in det.items():
             spurious = (nd == r["spurious_hub"])
             ax.scatter(d["pred"], d["causal_delta"], s=120,
-                       c="#b2182b" if spurious else "#3182bd",
+                       c=ps.RED if spurious else ps.BLUE,
                        marker="X" if spurious else "o", edgecolor="k", lw=0.5, zorder=3)
             ax.annotate(nd, (d["pred"], d["causal_delta"]), fontsize=7,
                         xytext=(3, 3), textcoords="offset points")
         ax.axhline(0, color="k", lw=0.4, ls=":")
-        ax.set_title(f'{r["episode"]}\n(cal {r["calibration_pass"]}, rho={r["spearman_pred_vs_causal"]})',
-                     fontsize=8)
+        ax.set_title(f'{r["episode"]}\n(rho={r["spearman_pred_vs_causal"]})',
+                     fontsize=9)
         ax.set_xlabel("GNN predicted", fontsize=8)
-        ax.grid(alpha=0.3)
-    axes[0][0].set_ylabel("ABM causal Δ", fontsize=8)
-    fig.suptitle("Correlation→Causation across crises: red X = spurious hub (predicted-high, causal≈0)",
-                 fontsize=10)
+        ax.grid(alpha=0.25)
+    axes[0][0].set_ylabel("ABM causal effect", fontsize=8)
+    fig.suptitle("Correlation versus causation across crises (red X = spurious hub)",
+                 fontsize=11, fontweight="bold")
     fig.tight_layout(); fig.savefig(path, dpi=200); plt.close(fig)
     print("figure ->", path)
 

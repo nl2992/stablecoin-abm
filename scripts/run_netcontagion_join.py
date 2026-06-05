@@ -184,14 +184,16 @@ def _plot(join: pd.DataFrame, spurious, origin, path: Path):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
-    fig, ax = plt.subplots(figsize=(7.5, 5.5))
+    import paper_style as ps
+    ps.apply()
+    fig, ax = plt.subplots(figsize=ps.TALL)
     for _, r in join.iterrows():
         if r["node"] == spurious:
-            c, mk, s = "#b2182b", "X", 200
+            c, mk, s = ps.RED, "X", 200
         elif r["propagator_label"] == 1:
-            c, mk, s = "#1a9850", "o", 150
+            c, mk, s = ps.GREEN, "o", 150
         else:
-            c, mk, s = "#888888", "s", 130
+            c, mk, s = ps.GREY, "s", 130
         ax.scatter(r["gnn_predicted_importance"], r["causal_delta_contagion"],
                    c=c, marker=mk, s=s, zorder=3, edgecolor="k", linewidth=0.5)
         ax.annotate(r["node"].split("/")[0],
@@ -199,14 +201,14 @@ def _plot(join: pd.DataFrame, spurious, origin, path: Path):
                     fontsize=9, xytext=(5, 4), textcoords="offset points")
     ax.axhline(0, color="k", lw=0.5, ls=":")
     ax.set_xlabel("GNN predicted importance (correlational hub score)")
-    ax.set_ylabel("ABM causal Δ-contagion (knockout)")
-    ax.set_title("Correlation → Causation: BUSD is a predicted hub with ~0 causal effect")
+    ax.set_ylabel("ABM causal effect (knockout)")
+    ax.set_title("Correlation is not causation: BUSD is a hub with no causal effect")
     ax.legend(handles=[
-        Line2D([0], [0], marker="o", color="w", markerfacecolor="#1a9850", label="true propagator", markersize=11),
-        Line2D([0], [0], marker="s", color="w", markerfacecolor="#888888", label="non-propagator", markersize=11),
-        Line2D([0], [0], marker="X", color="w", markerfacecolor="#b2182b", label="spurious hub", markersize=12),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=ps.GREEN, label="true propagator", markersize=11),
+        Line2D([0], [0], marker="s", color="w", markerfacecolor=ps.GREY, label="non-propagator", markersize=11),
+        Line2D([0], [0], marker="X", color="w", markerfacecolor=ps.RED, label="spurious hub", markersize=12),
     ], fontsize=9)
-    ax.grid(alpha=0.3)
+    ax.grid(alpha=0.25)
     fig.tight_layout(); fig.savefig(path, dpi=200); plt.close(fig)
     print("figure ->", path)
 
