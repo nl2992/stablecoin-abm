@@ -279,13 +279,13 @@ heart of the BUSD result. Matching all four is what makes the knockout trustwort
 \section{Why BUSD is spurious, from the balance sheet}\label{sec:exposure}
 A careful reader will object that our network $W$ was \emph{estimated} from the same prices the
 predictor used, so perhaps the whole exercise is circular. We answer by rebuilding $W$ from a source
-that has nothing to do with prices. \emph{Documented reserve holdings}. A depeg in coin $j$ can
+that has nothing to do with prices, namely documented reserve holdings. A depeg in coin $j$ can
 mechanically drag down coin $i$ only if $i$ holds $j$ as part of its backing. During the SVB window,
 public disclosures show DAI held roughly 50\% USDC and FRAX roughly 90\% USDC, while BUSD, TUSD, USDP,
 and USDT held no other stablecoin, and, decisively, \emph{no stablecoin held BUSD as backing}.
 
 Under this balance-sheet network the model still calibrates to all four moments, and BUSD's
-``out-exposure'', the total of other coins' reserves backed by it, is exactly zero
+``out-exposure'' (the total of other coins' reserves backed by it) is exactly zero
 (Figure~\ref{fig:exposure}). It is therefore \emph{mechanically} incapable of transmitting a depeg,
 regardless of how central it looks in a correlation graph. The estimated-network and balance-sheet
 analyses agree (BUSD inert, origin dominant in both), so the conclusion does not depend on how the
@@ -378,8 +378,8 @@ central but causally inert. The knockout recovers the true transmitters.}
 
 \paragraph{Does it generalize across crises?} Across the crises we can analyze
 (Figure~\ref{fig:multi}), the predictor's top hub \emph{is} the causal driver in one (the Terra
-collapse) but \emph{is not} in two others, so a correlational ranking is unreliable, sometimes right,
-sometimes badly wrong, which is precisely why the causal test is needed. A venue's
+collapse) but \emph{is not} in two others. A correlational ranking is therefore unreliable, sometimes
+right and sometimes badly wrong, which is precisely why the causal test is needed. A venue's
 documented out-exposure, which is known \emph{before} any crisis and needs no price data, ranks
 causal importance better than the learned correlational score, and the predictor's top hub is a
 structurally non-transmitting (zero-exposure) venue in three of five episodes.
@@ -427,6 +427,21 @@ both & 0.0014 & \checkmark & \checkmark \\
 \end{table}
 
 \section{Acting on causation pays}\label{sec:policy}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/11_balance_sheet_gate.png}
+\caption{The paper in one decision. Facing the same SVB crisis and the same
+single-venue backstop budget, a supervisor who acts on the correlational hub
+ranking protects BUSD and a supervisor who acts on the causal counterfactual
+protects USDC. A single public-disclosure check, whether any stablecoin holds
+the venue as documented reserves, separates the two. BUSD holds no such role and
+its protection removes $0\%$ of the contagion, while USDC is the origin and its
+protection removes $100\%$. The numbers are the calibrated knockout results of
+Table~\ref{tab:interventions}.}
+\label{fig:gate}
+\end{figure}
+
 \paragraph{The four intervention levers.} We model the policy tools a stablecoin supervisor actually
 has, each as a small modification of Eq.~\eqref{eq:model}. \emph{Targeted protection}, or a backstop,
 holds a chosen venue at its peg, $d_X(t)\equiv 0$, exactly as in the knockout. \emph{Reserve
@@ -477,9 +492,12 @@ reserve strengthening & \textbf{BUSD}, $\kappa\times20$ & \textbf{0\%} \\
 \end{tabular}
 \end{table}
 
-The budget comparison is the headline (Figure~\ref{fig:interventions}). A regulator who can backstop
+The budget comparison is the headline (Figure~\ref{fig:interventions}, summarised as a single decision
+in Figure~\ref{fig:gate}). A regulator who can backstop
 a single venue and chooses by the correlational hub ranking protects BUSD and achieves $0\%$
-contagion reduction. Choosing by the causal ranking protects USDC and achieves $100\%$.
+contagion reduction. Choosing by the causal ranking protects USDC and achieves $100\%$. The
+balance-sheet gate in Figure~\ref{fig:gate} is the one check that separates the two outcomes,
+namely whether any stablecoin holds the protected venue as documented reserves.
 
 \begin{figure*}[t]
 \centering
@@ -516,6 +534,55 @@ venues (USDC, DAI) and allocate nothing to the spurious hub (BUSD).}
 \label{fig:rl}
 \end{figure}
 
+
+\subsection{Practical Recommendations for Supervisors Under GENIUS Act and MiCA}
+
+The findings above translate into a concrete two-step procedure that any stablecoin supervisor can
+implement today using data already mandated by the GENIUS Act and MiCA. The procedure costs almost
+nothing to run and eliminates the single most expensive mistake a regulator can make, namely spending
+an entire backstop budget on a venue that, in truth, transmits no stress to anyone.
+
+Step one is to run the GNN hub-ranking predictor daily against the live stablecoin network. This
+generates a ranked list of candidate hubs, exactly as the companion predictor does for the USDC/SVB
+episode. The list is valuable because it is fast, automated, and continuously updated as network
+topology shifts. It is not, however, a causal ranking. It tells a supervisor where correlation is
+high, not where transmission is real. The second step is therefore mandatory before any budget is
+committed. For each candidate hub, the supervisor checks its documented out-exposure in the reserve
+disclosure network, asking what fraction of other stablecoins' reserves are backed by that coin.
+Under GENIUS Act and MiCA, these disclosures are already required. If a candidate hub's documented
+out-exposure is near zero, it is a spurious correlational signal and should be discarded. Only
+candidates that survive the balance-sheet check should receive backstop resources. In the USDC/SVB
+episode, this gate would have immediately eliminated BUSD from consideration and redirected the
+entire intervention budget to USDC and DAI, the two venues with real out-exposure.
+
+The cost of skipping step two is not abstract. Table~\ref{tab:interventions} is explicit on this
+point. Protecting BUSD achieves 0\% contagion reduction at any intervention intensity, while the same
+budget directed at USDC achieves 100\%. A supervisor who acts on the correlational ranking alone
+therefore wastes 100\% of the intervention budget and achieves no improvement in system outcomes. The
+welfare matrix (Figure~\ref{fig:welfare}) reinforces this. Protecting BUSD leaves every victim's loss
+column identical to the no-intervention baseline. This is not a marginal inefficiency in resource
+allocation. It is a complete failure to help anyone, at full cost. The two-step procedure exists
+precisely to prevent this outcome, and its computational cost is trivial. The balance-sheet network
+requires only reserve disclosures, not any price data or model estimation. A simple database lookup
+against mandatory filings is sufficient.
+
+The 2023 SVB episode carries a lesson that extends directly to stablecoin reserves. Silicon Valley
+Bank's failure did not become a systemic event because SVB was the largest or most connected
+institution in the interbank market. It became systemic because specific stablecoins held specific
+concentrated reserve positions there. USDC's 8\% reserve exposure to SVB was the documented link
+that made the depeg mechanical rather than speculative, and that same documented link was what made
+the causal ranking recoverable without any price estimation. Regulators implementing GENIUS Act
+reserve requirements should require not just the total reserve amount but the counterparty-level
+breakdown, precisely the data that makes the balance-sheet gate operational. A stablecoin that holds
+reserves in a single bank or in another stablecoin creates a documented transmission channel that a
+correlational predictor can only approximate at best and confuse at worst. Finally, the reinforcement
+learning result suggests this two-step procedure is not just analytically correct but learnable. A
+PPO agent given only the network's structural wiring and no causal labels independently allocates
+budget to USDC and DAI and nothing to BUSD, achieving 94\% contagion reduction. The fact that even a
+machine learning agent autonomously discovers the balance-sheet-consistent allocation reduces the
+burden on human judgment in time-critical situations and provides an independent validation that the
+two-step procedure is robust rather than a hand-crafted exception.
+
 \section{Discussion}
 \paragraph{What this means for explainable AI in finance.} Our result is a clean, quantified instance
 of the spurious-correlation problem that motivates intrinsic interpretability. An attribution method
@@ -539,13 +606,14 @@ powerful precisely because that network is given. Our setting inverts the diffic
 network for stablecoins is not cleanly observed in real time, so a practitioner is tempted to substitute
 a \emph{price-derived} network (correlation, attention), which silently swaps a causal object for a
 correlational one. The contribution of the knockout is to make that substitution's cost visible, and the
-contribution of the balance-sheet variant is to show that the genuinely causal object, who holds whom as
-reserves, is recoverable from disclosures after all. Read this way, our paper is an argument for putting
-documented exposure, not estimated centrality, at the centre of stablecoin systemic-risk measurement.
+contribution of the balance-sheet variant is to show that the genuinely causal object, namely who holds
+whom as reserves, is recoverable from disclosures after all. Read this way, our paper is an argument for
+putting documented exposure, not estimated centrality, at the centre of stablecoin systemic-risk
+measurement.
 
 \paragraph{Practical takeaway for supervisors.} A reserve-transparency or backstop programme guided by
 a correlational contagion ranking would, in this episode, have spent its capacity on a venue with no
-systemic role. The same capacity directed by the causal ranking, or, equivalently here, by the
+systemic role. The same capacity directed by the causal ranking, or equivalently here by the
 documented reserve-exposure network, would have fully contained the cascade. Where the two disagree,
 the balance-sheet network is both cheaper to compute (it needs no price data) and, in our tests, the
 better causal guide.
@@ -571,7 +639,7 @@ second moments (volatility, cross-venue correlation, peg-recovery half-life) rat
 joint distribution of returns, so a mechanism that leaves those moments unchanged but alters tail
 behaviour would be invisible to our fit. The near-critical regime we identify is the most this level
 of calibration can pin down. Third, the balance-sheet network that makes our causal object observable
-relies on reserve disclosures that are, today, neither universal nor uniformly audited, the very
+relies on reserve disclosures that are, today, neither universal nor uniformly audited. The very
 GENIUS Act and MiCA regimes we invoke are what would make this input dependable at scale. None of
 these overturns the BUSD result, which is identified by the documented reserve structure of the
 specific episode. They instead mark the boundary of where the method can be trusted without new data.
