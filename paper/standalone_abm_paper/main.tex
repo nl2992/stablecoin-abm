@@ -428,19 +428,20 @@ both & 0.0014 & \checkmark & \checkmark \\
 
 \section{Acting on causation pays}\label{sec:policy}
 
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
-\includegraphics[width=\columnwidth]{figures/11_balance_sheet_gate.png}
-\caption{The paper in one decision. Facing the same SVB crisis and the same
-single-venue backstop budget, a supervisor who acts on the correlational hub
-ranking protects BUSD and a supervisor who acts on the causal counterfactual
-protects USDC. A single public-disclosure check, whether any stablecoin holds
-the venue as documented reserves, separates the two. BUSD holds no such role and
-its protection removes $0\%$ of the contagion, while USDC is the origin and its
-protection removes $100\%$. The numbers are the calibrated knockout results of
-Table~\ref{tab:interventions}.}
+\includegraphics[width=\textwidth]{figures/11_balance_sheet_gate.png}
+\caption{The paper in one figure. Each panel is the calibrated contagion network
+during the USDC/SVB crisis, with every venue coloured by its peak depeg from the
+welfare matrix (Table~\ref{tab:interventions}). \emph{Left}, with no intervention
+the shock at the origin USDC propagates to its collateral holder DAI ($-13.8\%$)
+and mildly to USDP. \emph{Middle}, shielding BUSD, the predictor's \#1
+correlational hub, leaves every loss \emph{identical}, a $0\%$ reduction, because
+no venue holds BUSD as reserves. \emph{Right}, shielding the causal origin USDC
+zeroes the entire network, a $100\%$ reduction. The same one-venue budget buys
+nothing on the correlational hub and everything on the causal origin.}
 \label{fig:gate}
-\end{figure}
+\end{figure*}
 
 \paragraph{The four intervention levers.} We model the policy tools a stablecoin supervisor actually
 has, each as a small modification of Eq.~\eqref{eq:model}. \emph{Targeted protection}, or a backstop,
@@ -492,12 +493,13 @@ reserve strengthening & \textbf{BUSD}, $\kappa\times20$ & \textbf{0\%} \\
 \end{tabular}
 \end{table}
 
-The budget comparison is the headline (Figure~\ref{fig:interventions}, summarised as a single decision
-in Figure~\ref{fig:gate}). A regulator who can backstop
+The budget comparison is the headline (Figure~\ref{fig:interventions}, shown as a side-by-side
+cascade in Figure~\ref{fig:gate}). A regulator who can backstop
 a single venue and chooses by the correlational hub ranking protects BUSD and achieves $0\%$
 contagion reduction. Choosing by the causal ranking protects USDC and achieves $100\%$. The
-balance-sheet gate in Figure~\ref{fig:gate} is the one check that separates the two outcomes,
-namely whether any stablecoin holds the protected venue as documented reserves.
+network panels in Figure~\ref{fig:gate} make the gap visceral, since shielding BUSD leaves every
+venue's depeg unchanged while shielding USDC zeroes the whole network. The one check that
+separates the two outcomes is whether any stablecoin holds the protected venue as documented reserves.
 
 \begin{figure*}[t]
 \centering
