@@ -41,7 +41,7 @@ synthetic placebo control. The policy consequence is concrete. A regulator who b
 correlational hub achieves $0\%$ contagion reduction, while the causal target achieves $100\%$. The
 predicted hub ranking is \emph{negatively} correlated with the true causal ranking
 (Spearman~$\rho{=}{-}0.77$ for the SVB-specific computation, $-0.54$ harmonized across
-episodes): the most correlationally central venue is the least causally relevant. An RL regulator, given only the network and no causal labels, independently
+episodes). The most correlationally central venue is the least causally relevant. An RL regulator, given only the network and no causal labels, independently
 learns to protect the causal venues and ignore the spurious hub, achieving $93.7\%$ contagion
 reduction.
 \end{abstract}
@@ -83,9 +83,9 @@ calibrate it so that, left alone, it reproduces the real crisis, and then perfor
 analysis, in which a calibrated simulator is used to ask mechanism and policy questions that
 observation alone cannot~\cite{gu2024spoofability,battiston2012debtrank}.
 
-Our contributions are:
+We make the following contributions.
 \begin{enumerate}
-\item A contagion model that \textbf{calibrates to within tolerance on three of four} empirical moments (contagion magnitude, crisis half-life, cross-venue correlation $\rho$; see Table~\ref{tab:calib} for the honest calibration result including the baseline-volatility caveat)
+\item A contagion model that \textbf{calibrates to within tolerance on three of four} empirical moments (contagion magnitude, crisis half-life, cross-venue correlation $\rho$. See Table~\ref{tab:calib} for the honest calibration result including the baseline-volatility caveat)
 of the USDC/SVB crisis, after we show why an off-the-shelf market simulator cannot (\S\ref{sec:model}).
 \item A per-venue \textbf{causal knockout} that \emph{refutes} the predictor's top hub. It has zero
 causal effect (\S\ref{sec:knockout}).
@@ -163,7 +163,7 @@ The networked-contagion model varies smoothly and hits the target.}
 Each stablecoin $i$ has a \emph{peg deviation} $d_i$ (its price minus \$1). Deviations evolve under
 a mean-reverting process pushed by three forces, contagion flowing in from neighbours through a
 directed network $W$, the shock to the crisis origin, and a market-wide ``panic'' that scales with
-the origin's distress:
+the origin's distress.
 \begin{equation}
 d_i(t{+}1)=(1{-}\kappa)\,d_i(t)+c\!\sum_j W_{ij}\,\mathrm{stress}(d_j(t))+s_i(t)+\pi\,|d_o(t)|+\varepsilon,
 \label{eq:model}
@@ -179,8 +179,8 @@ so a calm coin transmits nothing and only a genuinely depegged coin drags its ne
 \emph{contagion network} $W$ is a directed weighted graph in which each entry
 $W_{ij}$ records how strongly coin $j$'s distress is transmitted to coin $i$.  An
 entry $W_{ij}>0$ means that when $j$ depegs, it pulls $i$ toward a depeg as well
-(e.g., because $i$ holds $j$ as collateral or because they share investors); an
-entry of zero means no direct transmission.  The edge $W_{ij}$ is \emph{directed}:
+(e.g. Because $i$ holds $j$ as collateral or because they share investors). An
+entry of zero means no direct transmission.  The edge $W_{ij}$ is \emph{directed}.
 $j$ can influence $i$ strongly while $i$ barely influences $j$ in the reverse
 direction.
 We first estimate $W$ from the real minute-level data by asking which coin's moves
@@ -201,13 +201,13 @@ origin-driven panic channel.
 
 \subsection{Calibration}
 A model is trustworthy for counterfactuals only if, left alone, it reproduces
-reality---this is the standard validation criterion for agent-based policy analysis,
-analogous to backtesting in finance.  Calibration is not merely a quality check; it
+reality, this is the standard validation criterion for agent-based policy analysis,
+analogous to backtesting in finance.  Calibration is not merely a quality check. It
 is what converts the model from a theoretical construct into a \emph{measurement
 instrument}.  Only after confirming that the simulated crisis matches the real one
 on the three causal moments can we trust that the knockout experiments measure genuine
 causal effects rather than artefacts of a misspecified model (the baseline pre-shock
-volatility moment is an honest partial exception; see Table~\ref{tab:calib}).
+volatility moment is an honest partial exception. See Table~\ref{tab:calib}).
 We tune five
 parameters so that the simulated crisis matches four empirical ``moments'' of the real USDC/SVB
 episode. The four moments are how deep the contagion goes, how long the peg takes to recover, the
@@ -221,10 +221,10 @@ Dividing by $m_k$ puts the four moments on a common scale, so no single moment d
 Table~\ref{tab:calib} shows, three of four match within tolerance. The baseline price volatility
 moment is matched at the calibration point estimate (0.0029 $\approx$ 0.0030) but the model's
 minimum structural noise floor (the idiosyncratic noise term $\sigma$) means the stochastic
-robustness draws consistently exceed the observed pre-crisis volatility: the 95\% CI of simulated
+robustness draws consistently exceed the observed pre-crisis volatility. The 95\% CI of simulated
 baseline volatility across ±30\% parameter perturbations is $[0.0049,\,0.0121]$, placing the
 empirical value of 0.003 just below the model's floor. This reflects the pre-crisis stablecoin
-market being unusually quiet, not a model misspecification for the \emph{crisis dynamics}: the
+market being unusually quiet, not a model misspecification for the \emph{crisis dynamics}. The
 three causal moments (contagion magnitude, half-life, cross-venue correlation) all match within
 tolerance, and those are the moments that determine whether the knockout experiments are trustworthy.
 The targets themselves are exported
@@ -235,7 +235,7 @@ from the companion predictor's measurements of the real data, so the two studies
 reproduced within tolerance. \emph{Baseline price volatility} is matched at the
 calibration point estimate ($0.0029 \approx 0.0030$) but the model's robustness
 draws (±30\% parameter variation) have a 95\% CI of $[0.0049, 0.0121]$, placing
-the empirical value below the model's noise floor; see text for discussion.}
+the empirical value below the model's noise floor. See text for discussion.}
 \label{tab:calib}
 \small
 \setlength{\tabcolsep}{4.5pt}
@@ -248,7 +248,7 @@ crisis half-life (steps) & 116 & 116.0 & \checkmark \\
 cross-venue correlation $\rho$ & 0.576 & 0.640 & \checkmark \\
 baseline price volatility & 0.0030 & 0.0029$^\dagger$ & $\times$ \\
 \bottomrule
-\multicolumn{4}{l}{\footnotesize $^\dagger$Point-estimate match; robustness CI $[0.0049, 0.0121]$ does not cover 0.003.}
+\multicolumn{4}{l}{\footnotesize $^\dagger$Point-estimate match. Robustness CI $[0.0049, 0.0121]$ does not cover 0.003.}
 \end{tabular}
 \end{table}
 
@@ -297,10 +297,10 @@ central venue is the least causal.
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/01_causal_join.png}
-\caption{Correlation is not causation. Y-axis: ABM causal effect as \% contagion reduction from a full
-backstop (from intervention sweep). X-axis: GNN predicted hub importance (normalized).
+\caption{Correlation is not causation. Y-axis. ABM causal effect as \% contagion reduction from a full
+backstop (from intervention sweep). X-axis. GNN predicted hub importance (normalized).
 The predictor's \#1 hub (\textbf{BUSD}, red~$\times$) achieves \textbf{0\%} contagion reduction at
-any intervention intensity---structurally incapable because no stablecoin holds it as backing.
+any intervention intensity, structurally incapable because no stablecoin holds it as backing.
 The true relay (\textbf{DAI}, green circle) is invisible to the GNN yet reduces contagion by
 \textbf{97.9\%} when protected. Protecting the origin (\textbf{USDC}, navy triangle) removes
 \textbf{100\%}. Spearman $\rho=-0.77$ between predicted and causal rankings for this episode.}
@@ -315,7 +315,7 @@ fixes the recovery rate $\kappa$, which determines how long a protected node's a
 chance. And the \emph{cross-venue correlation} fixes the panic channel $\pi$, which governs how much
 of the co-movement is common-factor rather than direct transmission, exactly the distinction at the
 heart of the BUSD result. Matching the three causal moments (contagion magnitude,
-half-life, cross-venue correlation) is what makes the knockout trustworthy; the
+half-life, cross-venue correlation) is what makes the knockout trustworthy. The
 baseline-volatility moment is a pre-crisis quiet-period check that is matched at
 the calibration point but lies below the model's noise floor in robustness draws
 (Table~\ref{tab:calib}).
@@ -341,7 +341,7 @@ verdict, which is the concordance underpinning the claim.
 \begin{table}[t]
 \caption{Calibrated parameters for the two model versions, network estimated from prices, vs network
 read off the documented balance sheet. Both reproduce the three causal moments and yield the same
-causal verdict (baseline-volatility caveat applies equally to both; see Table~\ref{tab:calib}).}
+causal verdict (baseline-volatility caveat applies equally to both. See Table~\ref{tab:calib}).}
 \label{tab:params}
 \small
 \begin{tabular}{lrr}
@@ -372,9 +372,9 @@ We subject the headline to four independent stress tests.
 
 \paragraph{(1) Calibration uncertainty.} The calibration is not exact, so we perturb the model's
 parameters and network by $\pm30\%$ over 60 random draws and re-run the knockout. USDC is the top
-causal venue in $100\%$ of draws and BUSD stays causally inert in $100\%$ of draws; its causal
+causal venue in $100\%$ of draws and BUSD stays causally inert in $100\%$ of draws. Its causal
 $\Delta$ is \emph{exactly} zero at the 95th percentile of the draw distribution.
-This is not a near-zero result---BUSD is
+This is not a near-zero result, BUSD is
 mechanically incapable of transmitting stress because its documented out-exposure is zero, and
 no amount of parameter variation changes that structural fact.
 The conclusion is therefore not an artifact of one lucky calibration.
@@ -420,12 +420,12 @@ structurally non-transmitting (zero-exposure) venue in three of five episodes
 \caption{Generalization across crises. The GNN's top hub matches the causal driver in one episode but
 diverges, with a spurious, structurally non-transmitting hub, in the others.
 Spearman $\rho$ measures rank-correlation between GNN predicted importance and ABM causal effect
-across all non-origin venues ($n=5$ or $6$) under the harmonized cross-episode pipeline;
-n/a = GNN and ABM agree on the top hub.
+across all non-origin venues ($n=5$ or $6$) under the harmonized cross-episode pipeline.
+N/a = GNN and ABM agree on the top hub.
 Note that USDT (May) has $\rho{=}{+}0.77$ yet the top hub is still misidentified, confirming
 that even a globally good ranking can misallocate a regulator's first backstop dollar.
-The SVB-specific join over its six venues gives a stronger $\rho{=}{-}0.77$ ($p{=}0.23$);
-we report the harmonized value here for cross-episode comparability.}
+The SVB-specific join over its six venues gives a stronger $\rho{=}{-}0.77$ ($p{=}0.23$).
+We report the harmonized value here for cross-episode comparability.}
 \label{tab:multi}
 \small
 \setlength{\tabcolsep}{4pt}
@@ -472,9 +472,9 @@ intensity ($\rho$, $b$, or $g$), and we sweep them.
 
 We close with the practical payoff. In the model, protecting USDC removes $100\%$ of the contagion. Strengthening its reserves twentyfold removes $89\%$. A circuit breaker removes $85\%$. And gating
 redemptions removes $100\%$. Protecting or strengthening BUSD removes \emph{nothing}, at any
-intensity. The welfare decomposition makes the distributional picture concrete: protecting BUSD
-leaves the per-venue loss matrix \emph{identical} to no intervention---every victim loses exactly as
-much---whereas protecting USDC zeroes the entire column.
+intensity. The welfare decomposition makes the distributional picture concrete. Protecting BUSD
+leaves the per-venue loss matrix \emph{identical} to no intervention, every victim loses exactly as
+much, whereas protecting USDC zeroes the entire column.
 
 Table~\ref{tab:interventions} reports the full sweep across intervention families and intensities.
 Two structural facts stand out. Every intervention applied to a \emph{causal} venue (USDC) or to the
@@ -503,7 +503,7 @@ reserve strengthening & \textbf{BUSD}, $\kappa\times20$ & \textbf{0\%} \\
 
 The budget comparison is the headline (Figure~\ref{fig:interventions}). A regulator who can backstop
 a single venue and chooses by the correlational hub ranking protects BUSD and achieves $0\%$
-contagion reduction. Choosing by the causal ranking protects USDC and achieves $100\%$: shielding
+contagion reduction. Choosing by the causal ranking protects USDC and achieves $100\%$. Shielding
 BUSD leaves every venue's depeg unchanged while shielding USDC zeroes the whole network. The one
 check that separates the two outcomes is whether any stablecoin holds the protected venue as
 documented reserves.
@@ -560,7 +560,7 @@ The cost of skipping step two is not abstract. Table~\ref{tab:interventions} is 
 point. Protecting BUSD achieves 0\% contagion reduction at any intervention intensity, while the same
 budget directed at USDC achieves 100\%. A supervisor who acts on the correlational ranking alone
 therefore wastes 100\% of the intervention budget and achieves no improvement in system outcomes. The
-welfare decomposition reinforces this: protecting BUSD leaves every victim's loss
+welfare decomposition reinforces this. Protecting BUSD leaves every victim's loss
 column identical to the no-intervention baseline. This is not a marginal inefficiency in resource
 allocation. It is a complete failure to help anyone, at full cost. The two-step procedure exists
 precisely to prevent this outcome, and its computational cost is trivial. The balance-sheet network
