@@ -324,3 +324,24 @@ Extensions → only if time permits after core is done
 - [ ] Calibration moments: 4/4 empirical targets within 95% CI across 500 simulations (GATE 4)
 - [ ] The UST/Terra concordance (where GNN IS right) is reported as a concordance, not omitted
 - [ ] No-intervention baseline anchors all comparison tables
+
+---
+
+## Loop run 2026-06-11 (Loop 1)
+
+### Status: prose quality pass complete; all 4 GATES confirmed in paper
+
+**Completed this run:**
+- Fixed calibration-uncertainty semicolon (CI`; BUSD` → CI`. BUSD`)
+- Fixed seed-stable semicolon (seed-stable`:` → seed-stable`.`)
+- Rewrote Step-two colon (Step two`:` → `checks each candidate's`)
+- Fixed cost-of-skipping colon (concrete`:` → concrete`.`)
+- Fixed correlational-not-causal colon (causal`:` → causal`.`)
+- Fixed lesson-generalises colon (generalises`:` → generalises`.`)
+- Fixed learnable colon (correct`:` → correct`.`)
+- Fixed two prose semicolons (discarded`;` → discarded`.`, `$93.7\%$; seed-stable` → `$93.7\%$, seed-stable`)
+- Committed `86a1f0c`, pushed to GitHub
+
+**GATES status**: GATE 1 (multi-episode table) ✅, GATE 2 (RL convergence) ✅, GATE 3 (budget table) ✅, GATE 4 (calibration uncertainty) ✅
+**Task 3 status**: All prior-session additions (Terra case study, state-dependent noise, DebtRank, CIs) confirmed in paper — COMPLETE
+**Remaining**: None
