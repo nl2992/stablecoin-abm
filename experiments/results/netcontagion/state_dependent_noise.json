@@ -1,0 +1,38 @@
+{
+  "calibrated_sigma_calm": 0.002054,
+  "gaussian_reference_kurtosis": 3.0,
+  "empirical_target_kurtosis": "4-10 (typical stablecoin 1-min returns, literature range)",
+  "description": "State-dependent noise: sigma_crisis = boost * sigma_calm when |d_i| > stress_thr=0.0015",
+  "results": [
+    {
+      "boost": 1.0,
+      "sigma_crisis": 0.002054,
+      "kurtosis": 77.48,
+      "excess_kurtosis": 74.48,
+      "moments_pass": "4/4"
+    },
+    {
+      "boost": 1.5,
+      "sigma_crisis": 0.003081,
+      "kurtosis": 67.669,
+      "excess_kurtosis": 64.669,
+      "moments_pass": "4/4"
+    },
+    {
+      "boost": 2.0,
+      "sigma_crisis": 0.004108,
+      "kurtosis": 40.929,
+      "excess_kurtosis": 37.929,
+      "moments_pass": "4/4"
+    },
+    {
+      "boost": 3.0,
+      "sigma_crisis": 0.006162,
+      "kurtosis": 16.545,
+      "excess_kurtosis": 13.545,
+      "moments_pass": "4/4"
+    }
+  ],
+  "key_finding": "The calibrated model already produces extreme excess kurtosis (74.5 above Gaussian) from circuit-breaker clipping and shock nonlinearities \u2014 well above typical empirical estimates of 4-10. State-dependent noise (sigma_crisis > sigma_calm) reduces simulated kurtosis while preserving all 4 calibrated moments: boost=2.0 yields excess kurtosis 37.9, boost=3.0 yields 13.5. This provides a calibration lever that narrows the 4th-moment gap without disturbing the other calibrated moments.",
+  "paper_statement": "The baseline model produces large excess kurtosis (~75) relative to empirical stablecoin 1-min returns (~4-10), driven by the circuit-breaker threshold and shock injection. A state-dependent noise extension (sigma_crisis = 2-3 \u00d7 sigma_calm) reduces simulated kurtosis to 13-41 while preserving all four calibrated moments (4/4 at every boost level). Full kurtosis matching is deferred to future work requiring finer shock-distribution calibration."
+}

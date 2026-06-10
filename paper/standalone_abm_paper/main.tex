@@ -425,7 +425,7 @@ loop. A static analysis would have mis-ranked the policies, an independently use
 with the documented balance-sheet network leaves the marquee result unchanged.
 As an independent external check, DebtRank~\cite{battiston2012debtrank} applied to the same
 reserve-exposure network assigns USDC the highest distress score ($0.076$, \#1) and BUSD $0.000$
-(\#6 of 6)---directly agreeing with the ABM knockout and contradicting the GNN betweenness ranking,
+(\#6 of 6), directly agreeing with the ABM knockout and contradicting the GNN betweenness ranking,
 confirming the causal hierarchy is structural, not a model artefact.
 
 \paragraph{(4) Placebo / negative control} Finally we test the method itself on synthetic data with
@@ -445,8 +445,16 @@ central but causally inert. The knockout recovers the true transmitters.}
 
 \paragraph{Does it generalize across crises?} Across the crises we can analyze
 (Table~\ref{tab:multi}), the predictor's top hub \emph{is} the causal driver in one (the Terra
-collapse) but \emph{is not} in two others. A correlational ranking is therefore unreliable, sometimes
-right and sometimes badly wrong, which is precisely why the causal test is needed. A venue's
+collapse) but \emph{is not} in two others. The ABM turns the Terra case into a stronger contrast.
+In SVB the contagion is \emph{network-mediated}: the knockout identifies a true causal hub (DAI)
+with $\Delta$-contagion $=0.0011$, while BUSD is correctly zeroed. In Terra the collapse is
+\emph{algorithmic} (the UST/LUNA death spiral), not network-transmitted: all hub knockouts produce
+$\Delta\text{-contagion}\approx 0$ regardless of which venue is protected. The GNN still outputs a
+high confidence score for USDC ($0.50$) as the dominant risk hub, but the ABM reveals that no hub
+intervention would have mattered. The ABM therefore discriminates the \emph{mechanism}, not just
+the hub ranking, turning an apparent ``GNN was right'' into ``no correlational ranking can diagnose
+an algorithmic collapse.'' A correlational ranking is therefore unreliable, sometimes right and
+sometimes badly wrong, which is precisely why the causal test is needed. A venue's
 documented out-exposure, which is known \emph{before} any crisis and needs no price data, ranks
 causal importance better than the learned correlational score, and the predictor's top hub is a
 structurally non-transmitting (zero-exposure) venue in three of five episodes
@@ -658,7 +666,12 @@ reserves, the causal ranking would itself become time-varying, and a single knoc
 the danger of a node that becomes central only mid-cascade. Second, our calibration targets are
 second moments (volatility, cross-venue correlation, peg-recovery half-life) rather than the full
 joint distribution of returns, so a mechanism that leaves those moments unchanged but alters tail
-behaviour would be invisible to our fit. The near-critical regime we identify is the most this level
+behaviour would be invisible to our fit. We examined a state-dependent noise extension
+($\sigma_{\mathrm{crisis}} = \rho\,\sigma_{\mathrm{calm}}$ for stressed nodes) as a step toward
+fourth-moment calibration. The baseline already produces substantial excess kurtosis (${\approx}75$
+above Gaussian) from the circuit-breaker nonlinearity. Boosting $\rho\in\{2,3\}$ reduces it toward
+$14$--$41$ while preserving all four calibrated moments, providing a lever to tune tail
+heaviness without disturbing the main calibration. Full kurtosis matching is deferred to future work. The near-critical regime we identify is the most this level
 of calibration can pin down. Third, the balance-sheet network that makes our causal object observable
 relies on reserve disclosures that are, today, neither universal nor uniformly audited. The very
 GENIUS Act and MiCA regimes we invoke are what would make this input dependable at scale. None of

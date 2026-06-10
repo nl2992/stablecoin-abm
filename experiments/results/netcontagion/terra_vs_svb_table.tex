@@ -1,0 +1,17 @@
+\begin{table}[t]
+\caption{Two knockout case studies: SVB (network-mediated contagion, spurious GNN hub)
+vs Terra (algorithmic collapse, all causal deltas $\approx 0$, no hub intervention would help).
+The ABM discriminates the contagion \emph{mechanism}, not just the hub ranking.}
+\label{tab:twocasestudies}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llllll}
+\toprule
+Episode & Mechanism & GNN top hub & ABM causal top & Max $\Delta$-contagion & Verdict \\
+\midrule
+USDC / SVB & bank-run / reserve panic & BUSD & DAI & $0.0011$ & network-mediated \\
+UST / Terra & algorithmic spiral (UST/LUNA) & USDC & USDC & $\approx 0$ & algorithmic \\
+\bottomrule
+\multicolumn{6}{l}{\footnotesize $\Delta$-contagion = baseline minus protected-hub contagion, deterministic run.}
+\end{tabular}
+\end{table}

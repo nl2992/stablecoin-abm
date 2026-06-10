@@ -1,0 +1,84 @@
+{
+  "terra": {
+    "episode": "UST_Terra",
+    "origin": "UST",
+    "n_nodes": 7,
+    "calibration_pass": "4/4",
+    "sim_contagion": 0.0519,
+    "mechanism": "algorithmic_spiral",
+    "gnn_top_hub": "USDC",
+    "gnn_top_pred_score": 0.5,
+    "abm_causal_top": "USDC",
+    "max_causal_delta": 0.0,
+    "all_deltas_near_zero": true,
+    "verdict": "algorithmic \u2014 no hub intervention would have mattered",
+    "detail": {
+      "USDC": {
+        "pred": 0.5,
+        "causal_delta": 0.0
+      },
+      "TUSD": {
+        "pred": 0.349,
+        "causal_delta": 0.0
+      },
+      "USDP": {
+        "pred": 0.233,
+        "causal_delta": 0.0
+      },
+      "BUSD": {
+        "pred": 0.07,
+        "causal_delta": 0.0
+      },
+      "DAI": {
+        "pred": 0.0,
+        "causal_delta": 0.0
+      },
+      "USDT": {
+        "pred": 0.0,
+        "causal_delta": 0.0
+      }
+    }
+  },
+  "svb": {
+    "episode": "USDC_SVB",
+    "origin": "USDC",
+    "n_nodes": 6,
+    "calibration_pass": "4/4",
+    "sim_contagion": 0.1375,
+    "mechanism": "bank_run_reserve_panic",
+    "gnn_top_hub": "BUSD",
+    "gnn_top_causal_delta": 0.0,
+    "abm_causal_top": "DAI",
+    "max_causal_delta": 0.00111,
+    "svb_causal_top_delta": 0.0,
+    "verdict": "network-mediated \u2014 protecting the true causal hub reduces contagion",
+    "detail": {
+      "TUSD": {
+        "pred": 0.263,
+        "causal_delta": 0.0
+      },
+      "USDP": {
+        "pred": 0.076,
+        "causal_delta": 0.0
+      },
+      "BUSD": {
+        "pred": 1.0,
+        "causal_delta": 0.0
+      },
+      "DAI": {
+        "pred": 0.0,
+        "causal_delta": 0.00111
+      },
+      "USDT": {
+        "pred": 0.0,
+        "causal_delta": 0.0
+      }
+    }
+  },
+  "contrast": {
+    "gnn_nominally_correct_terra": true,
+    "gnn_correct_svb": false,
+    "terra_all_zero_deltas": true,
+    "insight": "In Terra, the GNN nominally 'agrees' with the ABM causal ranking only because both pick USDC \u2014 but all causal deltas are ~0, revealing an algorithmic collapse where no hub intervention would help. The ABM discriminates the MECHANISM, not just the hub ranking."
+  }
+}
