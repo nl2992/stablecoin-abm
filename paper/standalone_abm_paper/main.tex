@@ -404,7 +404,7 @@ We subject the headline to four independent stress tests.
 \paragraph{(1) Calibration uncertainty} The calibration is not exact, so we perturb the model's
 parameters and network by $\pm30\%$ over 60 random draws and re-run the knockout. USDC is the top
 causal venue in $100\%$ of draws and BUSD stays causally inert in $100\%$ of draws. Across the 60
-draws the USDC origin $\Delta_X$ has mean $0.033$ and 95\% CI $[0.020,\,0.047]$; BUSD has
+draws the USDC origin $\Delta_X$ has mean $0.033$ and 95\% CI $[0.020,\,0.047]$. BUSD has
 $\Delta_X=0.000$ (no variability, exactly zero at every percentile of the draw distribution).
 This is not a near-zero result. BUSD is
 mechanically incapable of transmitting stress because its documented out-exposure is zero, and
@@ -582,7 +582,7 @@ where $C_0$ is the no-action contagion, $C(a)$ the contagion after spending $a$,
 cost of budget. The agent must therefore learn an efficient allocation rather than simply protect
 everyone. After training, the learned policy puts
 its budget on USDC and the relay DAI and \emph{none} on BUSD, achieving a $93.7\%$ contagion reduction.
-This allocation is seed-stable: across five independently trained seeds the contagion
+This allocation is seed-stable. Across five independently trained seeds the contagion
 reduction is $93.6\%\pm0.1\%$, and \emph{every} seed places $\ge0.9$ of its budget on
 USDC and $\le0.1$ on BUSD. A learning agent given only the network's wiring therefore
 rediscovers the same causal targets the explicit knockout identifies, and, like the
@@ -594,23 +594,23 @@ knockout but unlike the correlational ranking, never spends a cent on the spurio
 The findings translate into a concrete two-step procedure that any supervisor can implement today
 using data already mandated by the GENIUS Act and MiCA, at almost no cost. \emph{Step one}: run the
 GNN hub-ranking predictor daily against the live network for a fast, continuously updated list of
-candidate hubs. This is correlational, not causal: it says where co-movement is high, not where
-transmission is real. \emph{Step two} (mandatory before committing budget): for each candidate, check
-its documented out-exposure in the reserve-disclosure network, the fraction of other stablecoins'
+candidate hubs. This is correlational, not causal. It says where co-movement is high, not where
+transmission is real. \emph{Step two}, mandatory before committing budget, checks each candidate's
+documented out-exposure in the reserve-disclosure network, the fraction of other stablecoins'
 reserves backed by that coin. If that out-exposure is near zero the hub is spurious and should be
-discarded; only survivors receive backstop resources. In the USDC/SVB episode this gate would have
+discarded. Only survivors receive backstop resources. In the USDC/SVB episode this gate would have
 eliminated BUSD and redirected the entire budget to USDC and DAI.
 
-The cost of skipping step two is concrete (Table~\ref{tab:interventions}): protecting BUSD achieves
+The cost of skipping step two is concrete (Table~\ref{tab:interventions}). Protecting BUSD achieves
 $0\%$ reduction at any intensity while the same budget on USDC achieves $100\%$, so a supervisor
 acting on correlation alone wastes the entire budget, and the welfare decomposition shows every
 victim's loss column unchanged from no intervention. The balance-sheet gate needs only mandatory
-disclosures (a database lookup, no price data or model estimation), and the lesson generalises: SVB
+disclosures (a database lookup, no price data or model estimation), and the lesson generalises. SVB
 became systemic not because it was the largest interbank node but because specific stablecoins held
 concentrated reserves there, so GENIUS Act filings should report counterparty-level breakdowns, not
-just reserve totals. The RL result shows the procedure is learnable, not just analytically correct: a
+just reserve totals. The RL result shows the procedure is learnable, not just analytically correct. A
 PPO agent given only structural wiring and no causal labels independently funds USDC and DAI and
-nothing to BUSD ($93.7\%$ reduction; seed-stable, above).
+nothing to BUSD ($93.7\%$ reduction, seed-stable, above).
 
 \section{Discussion}
 \paragraph{What this means for explainable AI in finance} Our result is a clean, quantified instance
