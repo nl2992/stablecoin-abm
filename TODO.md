@@ -1,4 +1,9 @@
 # TODO — stablecoin-abm
+
+> **STATUS (2026-06-11): SUBMISSION-READY.** All four submission gates below are passed; paper compiles at 8pp (ICAIF '26, ACM sigconf). The calibrated counterfactual refutes the companion GNN's top hub (BUSD causal effect = 0; USDC = 100%), with DebtRank, placebo, and strategic-agent robustness checks and a seed-averaged RL regulator. Planning notes below are a historical record of the gate-clearing pass.
+
+---
+
 # Calibrated Networked Stablecoin ABM — From Correlation to Causation
 
 ## The paper's claim and what would falsify it
