@@ -14,6 +14,12 @@
 %% across TeX-distribution versions (content unchanged).
 \setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
 \setlength{\intextsep}{7pt plus 2pt minus 2pt}
+%% Allow denser float packing so the bibliography lands within 8pp
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\textfraction}{0.06}
+\renewcommand{\floatpagefraction}{0.85}
+\setcounter{topnumber}{4}
+\setcounter{totalnumber}{8}
 
 \begin{document}
 
@@ -32,14 +38,13 @@ When a stablecoin breaks its dollar peg and the panic spreads, analysts routinel
 centrality, or, increasingly, graph neural networks, to name the ``hubs'' that drive the
 contagion, and regulators may act on that ranking. But a venue that \emph{moves with} a crisis is
 not necessarily one that \emph{causes} it, and acting on a merely correlational ranking can waste a
-scarce intervention budget on a venue that transmits nothing. This is a causal question, and
-centrality alone cannot answer it. We build a calibrated, intervenable model of stablecoin contagion
-that answers the counterfactual directly. \emph{If we had backstopped venue $X$, how much contagion
+scarce intervention budget on a venue that transmits nothing. We build a calibrated, intervenable
+model of stablecoin contagion that answers the counterfactual directly. \emph{If we had backstopped venue $X$, how much contagion
 would actually have been prevented?} Taking as input a hub ranking exported by a companion
-graph-neural-network predictor, we calibrate our model to within tolerance on three of four empirical
-moments of the March-2023 USDC/SVB crisis (the fourth, baseline pre-shock price volatility, is
-matched at the calibration point estimate but falls below the model's noise floor in robustness draws)
-and run a per-venue ``knockout'' experiment.
+graph-neural-network predictor, we calibrate our model to the March-2023 USDC/SVB crisis,
+matching three of four empirical moments within tolerance (the fourth, baseline pre-shock
+volatility, matches at the point estimate but lies below the model's noise floor), and run a
+per-venue ``knockout'' experiment.
 The predictor's top-ranked hub, \textbf{BUSD}, has a causal effect of \emph{exactly zero},
 while protecting the crisis origin (USDC) removes \emph{all} of the contagion. A version of the
 model built from \emph{documented reserve holdings}, rather than estimated price relationships, explains why. No stablecoin held BUSD as backing, so it was mechanically incapable of transmitting
@@ -48,11 +53,11 @@ a strategic two-agent market, a switch from estimated to documented network stru
 synthetic placebo control. The policy consequence is concrete. A regulator who backstops the
 correlational hub achieves $0\%$ contagion reduction, while the causal target achieves $100\%$. The
 predicted hub ranking is \emph{negatively} correlated with the true causal ranking
-(Spearman~$\rho{=}{-}0.77$ for the SVB-specific six-venue computation; $-0.54$ when SVB is
-recomputed under a normalization applied uniformly across episodes for comparability). The
-most correlationally central venue is the least causally relevant. An RL regulator, trained
-on the calibrated ABM but given no explicit causal labels (only each venue's structural
-network features), independently learns to protect the causal venues and ignore the spurious
+(Spearman~$\rho{=}{-}0.54$ under a normalization applied uniformly across episodes; $-0.77$
+for the SVB-specific six-venue computation). The
+most correlationally central venue is the least causally relevant. An RL regulator trained on
+the calibrated ABM, observing only structural network features (including an origin indicator)
+and no causal labels, learns to protect the causal venues and allocates nothing to the spurious
 hub, achieving $93.7\%$ contagion reduction.
 \end{abstract}
 
@@ -63,10 +68,10 @@ analysis, systemic risk, intervention design, reinforcement learning}
 
 \section{Introduction}
 
-\subsection{The problem, correlation is not causation}
+\subsection{The problem: correlation is not causation}
 Suppose a model tells you that, during a stablecoin crisis, venue $X$ is the most ``central'' node
-in the contagion network. It has the highest betweenness, or a graph neural network pays it the
-most attention. A natural reading is that $X$ is where the contagion flows through, so a supervisor
+in the contagion network---the highest betweenness, or the most graph-neural-network
+attention. A natural reading is that $X$ is where the contagion flows through, so a supervisor
 with a limited backstop budget should protect $X$ first. The trouble is that centrality and
 attention are \emph{correlational}. They reward a venue for \emph{co-moving} with the crisis, which
 is very different from \emph{causing} the spread. A coin can plunge in lockstep with a panic while
@@ -80,16 +85,15 @@ disorderly depeg can trigger forced liquidations well beyond the coin itself, an
 reserve-transparency programme has only finite capacity. With stablecoins now explicitly regulated by
 the US GENIUS Act and the EU's MiCA framework~\cite{genius2025,mica2023}, a contagion ranking that is
 acted upon by a supervisor can misallocate that capacity onto a venue that, in truth, transmits nothing.
-The question of which venue to protect is therefore a \emph{causal} one, and centrality alone cannot
-answer it.
 
-\subsection{Our approach, asking the counterfactual}
+\subsection{Our approach: ask the counterfactual}
 The only way to know whether protecting $X$ would have stopped contagion is to ask a
 \emph{counterfactual}. Re-run the crisis with $X$ held safely at its peg, and measure how much the
-\emph{other} venues are spared. History runs only once, so we cannot observe this directly. We need
+\emph{other} venues are spared. History runs only once, so we need
 a \emph{model} of the crisis that we can intervene on. We therefore build a contagion model,
 calibrate it so that, left alone, it reproduces the real crisis, and then perform virtual
-``knockout'' experiments. This is the agent-based and network-propagation tradition of systemic-risk
+``knockout'' experiments---where a knockout \emph{protects} a venue (holds it at its peg),
+removing it as a transmitter, rather than deleting the node. This is the agent-based and network-propagation tradition of systemic-risk
 analysis, in which a calibrated simulator is used to ask mechanism and policy questions that
 observation alone cannot~\cite{gu2024spoofability,battiston2012debtrank}.
 
@@ -144,10 +148,8 @@ approaches~\cite{faloughi2025protohedge}. Our knockout is a model-based realisat
 interventionist view of causation, in which importance is defined by what changes when a variable is set
 by intervention rather than merely observed~\cite{pearl2009causality}. It is the policy analogue of an
 ablation study in machine learning. For the learned-regulator experiment we use Proximal Policy Optimization
-(PPO)~\cite{schulman2017ppo}, a policy-gradient method that learns by repeatedly
-sampling actions from the current policy, estimating the advantage of each action
-(how much better it was than average), and nudging the policy toward higher-advantage
-actions while clipping the update size to prevent destabilising large policy changes. We connect a graph
+(PPO)~\cite{schulman2017ppo}, a policy-gradient method that nudges the policy toward
+higher-advantage actions while clipping the update size for stability. We connect a graph
 predictor~\cite{zhou2025bridge} to this causal test and find that its top hub fails it.
 
 \section{A model we can intervene on}\label{sec:model}
@@ -167,8 +169,8 @@ model whose contagion magnitude is a \emph{smooth}, controllable function of its
 \centering
 \includegraphics[width=\columnwidth]{figures/07_bimodal.png}
 \caption{Why we replace the AMM market. The AMM's peak depeg is bimodal in the shock intensity
-(it resists, then collapses to the price floor), so it cannot be tuned to the empirical 14\% target.
-The networked-contagion model varies smoothly and hits the target.}
+(it resists, then collapses to the price floor), so it cannot be tuned to the empirical
+$13.76\%$ depeg target. The networked-contagion model varies smoothly and hits it.}
 \label{fig:bimodal}
 \end{figure}
 
@@ -176,13 +178,16 @@ The networked-contagion model varies smoothly and hits the target.}
 Each stablecoin $i$ has a \emph{peg deviation} $d_i$ (its price minus \$1). Deviations evolve under
 a mean-reverting process pushed by three forces, contagion flowing in from neighbours through a
 directed network $W$, the shock to the crisis origin, and a market-wide ``panic'' that scales with
-the origin's distress.
+the origin's distress (capturing the common-factor co-movement a crisis induces beyond direct
+balance-sheet exposure).
 \begin{equation}
 d_i(t{+}1)=(1{-}\kappa)\,d_i(t)+c\!\sum_j W_{ij}\,\mathrm{stress}(d_j(t))+s_i(t)+\pi\,|d_o(t)|+\varepsilon,
 \label{eq:model}
 \end{equation}
-where $\kappa$ is the speed of recovery toward the peg, $o$ is the origin, $\pi$ scales the panic
-spillover, and $\varepsilon$ is small idiosyncratic noise. The function $\mathrm{stress}$ is the
+where $\kappa$ is the speed of recovery toward the peg, $c$ the transmission gain, $W$ the
+directed contagion network, $s_i(t)$ the exogenous shock applied to the origin $o$, $\pi$ the
+scale of the panic spillover, and $\varepsilon$ small idiosyncratic noise (i.i.d.\ across coins
+and steps). The function $\mathrm{stress}$ is the
 switch that makes contagion threshold-driven. A coin passes stress on only once its own deviation is
 large enough to matter,
 \begin{equation}
@@ -192,10 +197,9 @@ so a calm coin transmits nothing and only a genuinely depegged coin drags its ne
 \emph{contagion network} $W$ is a directed weighted graph in which each entry
 $W_{ij}$ records how strongly coin $j$'s distress is transmitted to coin $i$.  An
 entry $W_{ij}>0$ means that when $j$ depegs, it pulls $i$ toward a depeg as well
-(e.g. Because $i$ holds $j$ as collateral or because they share investors). An
-entry of zero means no direct transmission.  The edge $W_{ij}$ is \emph{directed}.
-$j$ can influence $i$ strongly while $i$ barely influences $j$ in the reverse
-direction.
+(e.g.\ because $i$ holds $j$ as collateral or because they share investors); an entry of zero
+means no direct transmission. The edge is \emph{directed}: $j$ can influence $i$ strongly while
+the reverse influence is weak.
 We first estimate $W$ from the real minute-level data by asking which coin's moves
 \emph{lead} which others', and \S\ref{sec:exposure} replaces this with documented balance-sheet links.
 
@@ -203,21 +207,20 @@ We first estimate $W$ from the real minute-level data by asking which coin's mov
 close to, but below, the threshold of instability. If recovery $\kappa$ were strong relative to the
 transmission gain $c$, any depeg would be snuffed out instantly and there would be no contagion to
 study. If it were too weak, the smallest shock would blow up without bound. Real stablecoin crises
-live in between. A shock decays only slowly, so a modest amount of transmission, accumulated over many
+sit in between. A shock decays only slowly, so a modest amount of transmission, accumulated over many
 steps, produces a large total depeg before the peg is restored. Tuning the model to this near-critical
 regime is what lets a realistic origin shock of a few percent grow into the observed $\sim$14\%
-contagion in the victims, and it is precisely the regime an AMM market cannot represent (it is either
-stable and inert, or it collapses). Our reduced form is a deliberately minimal object that
+contagion in the victims, and it is precisely the regime the bimodal AMM market cannot
+represent. Our reduced form is a deliberately minimal object that
 \emph{can} represent it, closely related to the propagation dynamics behind network systemic-risk
 measures such as DebtRank~\cite{battiston2012debtrank}, but with an explicit recovery rate and an
 origin-driven panic channel.
 
 \subsection{Calibration}
 A model is trustworthy for counterfactuals only if, left alone, it reproduces
-reality, this is the standard validation criterion for agent-based policy analysis,
-analogous to backtesting in finance.  Calibration is not merely a quality check. It
-is what converts the model from a theoretical construct into a \emph{measurement
-instrument}.  Only after confirming that the simulated crisis matches the real one
+reality; this is the standard validation criterion for agent-based policy analysis,
+analogous to backtesting in finance. Calibration converts the model from a theoretical
+construct into a \emph{measurement instrument}. Only after confirming that the simulated crisis matches the real one
 on the three causal moments can we trust that the knockout experiments measure genuine
 causal effects rather than artefacts of a misspecified model (the baseline pre-shock
 volatility moment is an honest partial exception, see Table~\ref{tab:calib}). To guard
@@ -234,12 +237,12 @@ $\Theta$, we choose $\Theta$ to minimise the total relative error,
 \Theta^\star=\arg\min_{\Theta}\sum_{k=1}^{4}\Big(\frac{\hat m_k(\Theta)-m_k}{m_k}\Big)^2 .
 \end{equation}
 Dividing by $m_k$ puts the four moments on a common scale, so no single moment dominates the fit. As
-Table~\ref{tab:calib} shows, three of four match within tolerance. The baseline price volatility
+Table~\ref{tab:calib} shows, three of four match within tolerance (thresholds fixed in the
+calibration configuration, not tuned post hoc). The baseline price volatility
 moment is matched at the calibration point estimate (0.0029 $\approx$ 0.0030) but the model's
 minimum structural noise floor (the idiosyncratic noise term $\sigma$) means the stochastic
-robustness draws consistently exceed the observed pre-crisis volatility. The 95\% CI of simulated
-baseline volatility across ±30\% parameter perturbations is $[0.0049,\,0.0121]$, placing the
-empirical value of 0.003 just below the model's floor. This reflects the pre-crisis stablecoin
+robustness draws consistently exceed the observed pre-crisis volatility (CI in
+Table~\ref{tab:calib}). This reflects the pre-crisis stablecoin
 market being unusually quiet, not a model misspecification for the \emph{crisis dynamics}. The
 three causal moments (contagion magnitude, half-life, cross-venue correlation) all match within
 tolerance, and those are the moments that determine whether the knockout experiments are trustworthy.
@@ -285,13 +288,13 @@ big victim, simply by being excluded, would appear ``important.'' A venue that t
 has $\Delta_X\approx 0$ no matter how central it looks. The crisis origin has the largest $\Delta$.
 
 \paragraph{Experimental protocol} Each simulated episode runs for 250 steps (one step
-$\approx5$ minutes, so the horizon spans the crisis and its recovery), with the shock applied at step
+$\approx5$ minutes; the horizon spans the acute depeg and its recovery at the calibrated
+half-life of 116 steps), with the shock applied at step
 40 after a calm warm-up (full configuration in Table~\ref{tab:config}). We compute the causal effect $\Delta_X$ on the deterministic propagation, and
 all stochastic moments (volatility, cross-venue correlation) as medians over many noisy seeds. The
 intervention sweep and the robustness draws (\S\ref{sec:robust}) re-run this same episode under each
 modification, so every comparison holds the shock, the network, and the horizon fixed and varies only
-the quantity under study. This isolates the effect of interest and makes the percentage figures we
-report directly comparable.
+the quantity under study, making the percentage figures directly comparable.
 
 \begin{table}[t]
 \caption{Experimental and training configuration. Calibrated dynamics parameters
@@ -320,26 +323,26 @@ train steps / seeds & 12{,}000 / 5 \\
 \end{tabular}
 \end{table}
 
-\paragraph{Tracing the cascade} Follow the mechanism concretely. The shock hits USDC.
-Because DAI holds USDC as collateral, the edge $W_{\text{DAI},\text{USDC}}$ carries USDC's stress into
-DAI, which depegs in turn. The origin-driven panic term $\pi|d_{\text{USDC}}|$ simultaneously nudges
-\emph{every} coin down, which is why TUSD and USDP wobble even though they hold no USDC. Now run the
-knockout. Protect USDC. The shock is absorbed, the DAI edge carries nothing, the panic term is zero,
-and the whole cascade vanishes. Hence $\Delta_{\text{USDC}}=100\%$. Protect BUSD instead. BUSD was
-only ever a \emph{receiver} of the panic and transmits along no outgoing edge, so holding it at peg
-leaves USDC's shock, the DAI channel, and the panic untouched. Every other venue depegs exactly as
-before, and $\Delta_{\text{BUSD}}=0$. The asymmetry between a transmitter and a co-moving receiver is
+\paragraph{Tracing the cascade} Follow the mechanism concretely. The shock hits USDC; because
+DAI holds USDC as collateral, the edge $W_{\text{DAI},\text{USDC}}$ carries the stress into DAI,
+while the panic term $\pi|d_{\text{USDC}}|$ nudges \emph{every} coin down (which is why TUSD and
+USDP wobble despite holding no USDC). Protect USDC and the shock is absorbed, the DAI edge
+carries nothing, the panic term is zero, and the cascade vanishes: $\Delta_{\text{USDC}}=100\%$.
+Protect BUSD instead and nothing changes---it was only ever a \emph{receiver} of the panic and
+transmits along no outgoing edge, so every other venue depegs exactly as before:
+$\Delta_{\text{BUSD}}=0$. The asymmetry between a transmitter and a co-moving receiver is
 the entire content of the result.
 
-Two anchors validate the experiment. Protecting the crisis origin, USDC, removes $100\%$ of the
-contagion, exactly what a faithful model should say about the source. And \textbf{BUSD, the
-predictor's \#1 hub, has a causal effect of zero}. Removing it changes nothing for anyone, because in
-the estimated network it transmits to no one. The full ranking we consume is the predictor's
-normalized hub importance for this episode---BUSD~$1.00$ (rank~1), TUSD~$0.26$, USDP~$0.08$, and
+Two anchors validate the experiment: protecting the crisis origin (USDC) removes $100\%$ of the
+contagion, exactly what a faithful model should say about the source, and \textbf{BUSD, the
+predictor's \#1 hub, has a causal effect of zero}. The full ranking we consume is the predictor's
+normalized hub importance for this episode (a composite dominated by undirected betweenness, per
+the companion study)---BUSD~$1.00$ (rank~1), TUSD~$0.26$, USDP~$0.08$, and
 DAI and USDT~$0.00$---so the predictor scores the true relay (DAI) at zero. Figure~\ref{fig:join}
 plots, for every venue, this correlational importance against the model's causal effect. The two are
-not merely unrelated. They are \emph{negatively} associated (Spearman $-0.77$). Here, the most correlationally
-central venue is the least causal.
+not merely unrelated. They are \emph{negatively} associated (Spearman $-0.77$, driven by the extreme
+disagreement on BUSD, top-ranked yet inert, and DAI, scored zero yet causally dominant). Here, the
+most correlationally central venue is the least causal.
 
 \begin{figure}[t]
 \centering
@@ -349,7 +352,7 @@ backstop (from intervention sweep). X-axis: GNN predicted hub importance (normal
 The predictor's \#1 hub (\textbf{BUSD}, red~$\times$) achieves \textbf{0\%} contagion reduction at
 any intervention intensity, structurally incapable because no stablecoin holds it as backing.
 The true relay (\textbf{DAI}, green circle) is invisible to the GNN yet reduces contagion by
-\textbf{97.9\%} when protected. Protecting the origin (\textbf{USDC}, navy triangle) removes
+\textbf{98\%} when protected. Protecting the origin (\textbf{USDC}, navy triangle) removes
 \textbf{100\%}. Spearman $\rho=-0.77$ between predicted and causal rankings for this episode.}
 \label{fig:join}
 \end{figure}
@@ -358,14 +361,13 @@ The true relay (\textbf{DAI}, green circle) is invisible to the GNN yet reduces 
 different aspect of the dynamics that the counterfactual depends on. The \emph{contagion magnitude}
 fixes the overall gain, so that a knockout's percentage reduction is meaningful. The \emph{half-life}
 fixes the recovery rate $\kappa$, which determines how long a protected node's absence is felt. The
-\emph{baseline volatility} fixes the noise floor, so that a causal effect can be distinguished from
-chance. And the \emph{cross-venue correlation} fixes the panic channel $\pi$, which governs how much
+\emph{baseline volatility} fixes the noise floor against which the stochastic moments are read;
+the knockout itself is computed on the deterministic propagation (\S\ref{sec:knockout}), so the
+noise-floor caveat of Table~\ref{tab:calib} bounds the stochastic moments, not $\Delta_X$. And
+the \emph{cross-venue correlation} fixes the panic channel $\pi$, which governs how much
 of the co-movement is common-factor rather than direct transmission, exactly the distinction at the
-heart of the BUSD result. Matching the three causal moments (contagion magnitude,
-half-life, cross-venue correlation) is what makes the knockout trustworthy. The
-baseline-volatility moment is a pre-crisis quiet-period check that is matched at
-the calibration point but lies below the model's noise floor in robustness draws
-(Table~\ref{tab:calib}).
+heart of the BUSD result. Matching the three causal moments is what makes the
+knockout trustworthy.
 
 \section{Why BUSD is spurious, from the balance sheet}\label{sec:exposure}
 A careful reader will object that our network $W$ was \emph{estimated} from the same prices the
@@ -378,10 +380,13 @@ and USDT held no other stablecoin, and \emph{no stablecoin held BUSD as backing}
 Under this balance-sheet network the model still calibrates to the three causal moments, and BUSD's
 ``out-exposure'' (the total of other coins' reserves backed by it) is exactly zero
 (Figure~\ref{fig:exposure}). It is therefore \emph{mechanically} incapable of transmitting a depeg,
-regardless of how central it looks in a correlation graph. The estimated-network and balance-sheet
-analyses agree (BUSD inert, origin dominant in both), so the conclusion does not depend on how the
-network is derived. This is the strongest form of the result. BUSD is spurious not as a statistical
-accident but as a balance-sheet fact. Table~\ref{tab:params} reports the calibrated parameters for
+regardless of how central it looks in a correlation graph. Stated precisely: with BUSD's
+documented out-edges all zero, $\Delta_{\text{BUSD}}=0$ follows from Eq.~\eqref{eq:model} for
+\emph{any} parameter values---an analytic consequence, not a simulation outcome. The empirical
+content of the variant lies elsewhere: the documented network still calibrates to the three
+causal moments, and because the two versions are calibrated separately (Table~\ref{tab:params}),
+their agreement shows the zero-exposure fact dominates the verdict regardless of the fitted
+dynamics. BUSD is spurious not as a statistical accident but as a balance-sheet fact. Table~\ref{tab:params} reports the calibrated parameters for
 the two versions side by side. They reach the same moments with similar dynamics and deliver the same
 verdict, which is the concordance underpinning the claim.
 
@@ -422,10 +427,9 @@ parameters and network by $\pm30\%$ over 60 random draws and re-run the knockout
 causal venue in $100\%$ of draws and BUSD stays causally inert in $100\%$ of draws. Across the 60
 draws the USDC origin $\Delta_X$ has mean $0.033$ and 95\% CI $[0.020,\,0.047]$. BUSD has
 $\Delta_X=0.000$ (no variability, exactly zero at every percentile of the draw distribution).
-This is not a near-zero result. BUSD is
-mechanically incapable of transmitting stress because its documented out-exposure is zero, and
-no amount of parameter variation changes that structural fact.
-The conclusion is therefore not an artifact of one lucky calibration.
+This is not a near-zero result: BUSD's zero documented out-exposure makes it mechanically
+incapable of transmitting stress (\S\ref{sec:exposure}), and no parameter variation changes
+that structural fact, so the conclusion is not an artifact of one lucky calibration.
 
 \paragraph{(2) Strategic agents} To address the worry that our model is too mechanical, we add two
 behavioural agents (Table~\ref{tab:twoagent}). An \emph{adaptive redeemer} accelerates redemptions
@@ -434,15 +438,15 @@ the peg but runs out of capital in a large crisis (the classic ``limits to arbit
 amplifies contagion $7.7\times$ and the arbitrageur damps it, yet across all four agent configurations
 USDC remains the top causal venue and BUSD remains inert, so the causal conclusion is not a
 static-model artifact (a Lucas-critique check). The best \emph{intervention} also changes. A circuit breaker, mediocre with passive agents, becomes the most effective tool once runs are
-self-reinforcing (cutting $95\%$ rather than $63\%$), because it directly interrupts the feedback
+self-reinforcing ($63\%\to95\%$), because it directly interrupts the feedback
 loop. A static analysis would have mis-ranked the policies, an independently useful finding.
 
 \paragraph{(3) Network derivation} As shown in \S\ref{sec:exposure}, replacing the estimated network
 with the documented balance-sheet network leaves the marquee result unchanged.
 As an independent external check, DebtRank~\cite{battiston2012debtrank} applied to the same
 reserve-exposure network assigns USDC the highest distress score ($0.076$, \#1) and BUSD $0.000$
-(\#6 of 6), directly agreeing with the ABM knockout and contradicting the GNN betweenness ranking,
-confirming the causal hierarchy is structural, not a model artefact.
+(\#6 of 6), agreeing with the knockout against the GNN betweenness ranking; the causal
+hierarchy is structural, not a model artefact.
 
 \paragraph{(4) Placebo / negative control} Finally we test the method itself on synthetic data with
 a \emph{known} answer. We plant a true transmission chain plus an isolated ``co-mover'' that moves
@@ -473,20 +477,22 @@ an algorithmic collapse.'' A correlational ranking is therefore unreliable, some
 sometimes badly wrong, which is precisely why the causal test is needed. A venue's
 documented out-exposure, which is known \emph{before} any crisis and needs no price data, ranks
 causal importance better than the learned correlational score, and the predictor's top hub is a
-structurally non-transmitting (zero-exposure) venue in three of five episodes
-(Table~\ref{tab:multi}).
+structurally non-transmitting (zero-exposure) venue in three of the five analyzable episodes
+(Table~\ref{tab:multi} shows the three contagion-producing episodes; the count also includes the
+two low-contagion episodes, whose top hubs are likewise zero-out-exposure venues).
 
 \begin{table}[t]
 \caption{Generalization across crises. The GNN's top hub matches the causal driver in one episode but
 diverges, with a spurious, structurally non-transmitting hub, in the others.
 Spearman $\rho$ measures rank-correlation between GNN predicted importance and ABM causal effect
-across all non-origin venues ($n=5$ or $6$) under the \emph{harmonized} pipeline, i.e.\ the same
-score normalization applied uniformly to every episode so the values are comparable.
-N/a = GNN and ABM agree on the top hub.
-Note that USDT (May) has $\rho{=}{+}0.77$ yet the top hub is still misidentified, confirming
-that even a globally good ranking can misallocate a regulator's first backstop dollar.
-The SVB-specific join over its six venues gives a stronger $\rho{=}{-}0.77$ ($p{=}0.23$).
-We report the harmonized value here for cross-episode comparability.}
+across all non-origin venues ($n=5$ or $6$) under the \emph{harmonized} pipeline (the same
+normalization applied to every episode).
+N/a = GNN and ABM agree on the top hub. ``ABM top'' is the highest-$\Delta$ \emph{non-origin}
+venue; in Terra the collapse is algorithmic and all knockouts give $\Delta\approx0$ (see text),
+so its row tests agreement only.
+USDT (May) has $\rho{=}{+}0.77$ yet a misidentified top hub: even a globally good ranking can
+misallocate the first backstop dollar.
+The SVB-specific six-venue join gives a stronger $\rho{=}{-}0.77$ ($p{=}0.23$).}
 \label{tab:multi}
 \small
 \setlength{\tabcolsep}{3pt}
@@ -502,14 +508,16 @@ USDT (May) & USDC & TUSD & yes & $+0.77$ \\
 \end{table}
 
 \begin{table}[t]
-\caption{Two-agent robustness. The arbitrageur damps the crisis and the redeemer amplifies it, yet
-the origin is the top causal venue and BUSD is inert in every configuration.}
+\caption{Two-agent robustness. \emph{Baseline} is the no-intervention contagion $C$ under each
+configuration. The redeemer amplifies the crisis ($7.7\times$) and the arbitrageur damps it
+nearly to zero (so its two rows are a weak test by construction); the origin remains the top
+causal venue and BUSD remains inert in every configuration.}
 \label{tab:twoagent}
 \small
 \setlength{\tabcolsep}{5pt}
 \begin{tabular}{lrcc}
 \toprule
-agents & baseline & USDC top-causal & BUSD inert \\
+agents & baseline $C$ & USDC top-causal & BUSD inert \\
 \midrule
 none & 0.031 & \checkmark & \checkmark \\
 redeemer only & 0.240 & \checkmark & \checkmark \\
@@ -529,15 +537,19 @@ better-capitalised reserve mean-reverts faster. A \emph{circuit breaker} caps th
 threshold, $d_i\to\mathrm{clip}(d_i,-b,b)$, which is a trading halt that stops the depeg deepening.
 \emph{Redemption gating} shrinks the global transmission gain, $c\to(1-g)\,c$ with $g\in[0,1]$,
 because slowing redemptions throttles the channel through which stress flows. Each lever has an
-intensity ($\rho$, $b$, or $g$), and we sweep them.
+intensity ($\rho$, $b$, or $g$), and we sweep them. Throughout, we report an intervention's
+effect as the percentage reduction in total contagion $C$, the normalized counterpart of the
+knockout effect $\Delta_X$.
 
-We close with the practical payoff. In the model, protecting USDC removes $100\%$ of the contagion. Strengthening its reserves twentyfold removes $89\%$. A circuit breaker removes $85\%$. And gating
+In the model, protecting USDC removes $100\%$ of the contagion, strengthening its reserves
+twentyfold removes $89\%$, a circuit breaker removes $85\%$, and gating
 redemptions removes $100\%$. Protecting or strengthening BUSD removes \emph{nothing}, at any
 intensity. The welfare decomposition makes the distributional picture concrete and quantitative:
 protecting USDC \emph{Pareto-dominates} no intervention, driving every victim's peak depeg to
 zero (e.g.\ DAI $0.138\!\to\!0$, USDC $0.103\!\to\!0$), whereas protecting BUSD leaves the
 per-venue loss matrix \emph{identical} to no intervention (maximum change from baseline
-$=0$ across all six venues), so no agent benefits from the budget.
+$=0$ across all six venues), so no agent benefits from the budget; the full
+venue~$\times$~intervention matrix ships as a committed artifact in the repository.
 
 Table~\ref{tab:interventions} reports the full sweep across intervention families and intensities.
 Two structural facts stand out. Every intervention applied to a \emph{causal} venue (USDC) or to the
@@ -569,16 +581,16 @@ by the correlational ranking protects BUSD ($0\%$ reduction), while the causal r
 ($100\%$). The one check that separates the two is whether any stablecoin holds the protected venue
 as documented reserves.
 
-\paragraph{Dose-response and budget allocation} Sweeping reserve-strengthening intensity $\rho$
-for USDC, showing $5\times$ (\$174M) reduces contagion by $64\%$, $20\times$ (\$827M) by $89\%$,
-and $50\times$ (\$2.1B) by $95\%$.  BUSD achieves zero reduction at any cost.
-Under a $K{=}1$ budget, GNN-guided picks BUSD ($0\%$). ABM-guided picks USDC ($100\%$).
-At $K{=}2$, both strategies achieve $100\%$ but via different venue sets.
-Tightly budget-constrained supervisors face the highest cost from following correlational rankings.
+\paragraph{Dose-response and budget allocation} Sweeping reserve-strengthening intensity for
+USDC: $5\times$ (\$174M) cuts contagion $64\%$, $20\times$ (\$827M) $89\%$, and $50\times$
+(\$2.1B) $95\%$, while BUSD achieves zero at any cost. Under a $K{=}1$ budget the GNN-guided
+pick (BUSD) yields $0\%$ and the ABM-guided pick (USDC) $100\%$; at $K{=}2$ both reach $100\%$
+via different venue sets. The tighter the budget, the higher the cost of following a
+correlational ranking.
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=\textwidth]{figures/04_interventions.png}
+\includegraphics[width=0.88\textwidth]{figures/04_interventions.png}
 \caption{The left panel shows the best contagion reduction by intervention family. The right panel
 shows a one-venue budget spent on the correlational hub (BUSD) yielding $0\%$, and on the causal pick
 (USDC), $100\%$.}
@@ -587,9 +599,10 @@ shows a one-venue budget spent on the correlational hub (BUSD) yielding $0\%$, a
 
 Finally, we ask whether a learning agent, given no causal labels, would discover this on its own. We
 cast the problem as a one-shot contextual bandit and train a PPO~\cite{schulman2017ppo} regulator.
-Its \emph{observation} is, for each venue, three purely structural features, namely its
-in-transmission, its out-transmission, and whether it is the origin, and \emph{nothing} about which
-venue is causal. Its \emph{action} is a continuous reserve-protection budget $a\in\mathbb{R}^N_{\ge 0}$
+Its \emph{observation} is, for each venue, three structural features: its in-transmission, its
+out-transmission, and an origin indicator. The origin flag identifies the shock source, so the
+informative test is what the agent does \emph{beyond} the origin: whether it funds the relay,
+and whether it wastes budget on the spurious hub. Its \emph{action} is a continuous reserve-protection budget $a\in\mathbb{R}^N_{\ge 0}$
 over the venues, applied as a per-venue boost to the recovery speed $\kappa$. Its \emph{reward}
 trades the contagion prevented against the budget spent,
 \begin{equation}
@@ -597,36 +610,38 @@ R(a)=\underbrace{\big(C_0-C(a)\big)}_{\text{contagion prevented}}-\;\beta\,\text
 \end{equation}
 where $C_0$ is the no-action contagion, $C(a)$ the contagion after spending $a$, and $\beta$ the unit
 cost of budget. The agent must therefore learn an efficient allocation rather than simply protect
-everyone. After training, the learned policy puts
-its budget on USDC and the relay DAI and \emph{none} on BUSD, achieving a $93.7\%$ contagion reduction.
-This allocation is seed-stable. Across five independently trained seeds the contagion
-reduction is $93.6\%\pm0.1\%$, and \emph{every} seed places $\ge0.9$ of its budget on
-USDC and $\le0.1$ on BUSD. A learning agent given only the network's wiring therefore
-rediscovers the same causal targets the explicit knockout identifies, and, like the
-knockout but unlike the correlational ranking, never spends a cent on the spurious hub.
+everyone. After training, the learned policy allocates
+its budget to USDC and the relay DAI and \emph{none} to BUSD, achieving a $93.7\%$ contagion reduction
+(the residual gap to $100\%$ reflects the budget penalty $\beta$: full protection is not
+reward-optimal). This allocation is seed-stable. Across five independently trained seeds the
+contagion reduction is $93.6\%\pm0.1\%$, and \emph{every} seed places $\ge0.9$ of its budget on
+USDC and $\le0.1$ on BUSD. Because the agent is trained and evaluated inside the calibrated
+model, this is a within-model demonstration that the causal allocation is \emph{learnable} from
+structural wiring alone, not an independent validation; its value is that the learned policy
+agrees with the explicit knockout and, unlike the correlational ranking, allocates nothing to
+the spurious hub.
 
 
 \subsection{From a causal test to a supervisory gate}
 
-The findings translate into a concrete two-step procedure that any supervisor can implement today
-using data already mandated by the GENIUS Act and MiCA, at almost no cost. \emph{Step one}: run the
+The findings translate into a concrete two-step procedure a supervisor can implement, at almost
+no cost, with reserve-disclosure data of the kind the GENIUS Act and MiCA mandate (today's
+disclosures are not yet universal; see Limitations). \emph{Step one}: run the
 GNN hub-ranking predictor daily against the live network for a fast, continuously updated list of
-candidate hubs. This is correlational, not causal. It says where co-movement is high, not where
+candidate hubs. This list is correlational: it says where co-movement is high, not where
 transmission is real. \emph{Step two}, mandatory before committing budget, checks each candidate's
 documented out-exposure in the reserve-disclosure network, the fraction of other stablecoins'
 reserves backed by that coin. If that out-exposure is near zero the hub is spurious and should be
 discarded. Only survivors receive backstop resources. In the USDC/SVB episode this gate would have
 eliminated BUSD and redirected the entire budget to USDC and DAI.
 
-The cost of skipping step two is concrete (Table~\ref{tab:interventions}). Protecting BUSD achieves
-$0\%$ reduction at any intensity while the same budget on USDC achieves $100\%$, so a supervisor
-acting on correlation alone wastes the entire budget, and the welfare decomposition shows every
-victim's loss column unchanged from no intervention. The balance-sheet gate needs only mandatory
+The cost of skipping step two is concrete (Table~\ref{tab:interventions}): a supervisor acting on
+correlation alone wastes the entire budget. The balance-sheet gate needs only mandatory
 disclosures (a database lookup, no price data or model estimation), and the lesson generalises. SVB
 became systemic not because it was the largest interbank node but because specific stablecoins held
 concentrated reserves there, so GENIUS Act filings should report counterparty-level breakdowns, not
-just reserve totals. The RL result shows the procedure is learnable, not just analytically correct. A
-PPO agent given only structural wiring and no causal labels independently funds USDC and DAI and
+just reserve totals. The RL result shows the procedure is learnable inside the model, not just analytically correct:
+a PPO agent given only structural wiring funds USDC and DAI and
 nothing to BUSD ($93.7\%$ reduction, seed-stable, above).
 
 \section{Discussion}
@@ -635,20 +650,20 @@ of the spurious-correlation problem that motivates intrinsic interpretability. A
 (centrality, attention) told us BUSD was \emph{the} hub. A causal test told us it transmitted nothing.
 The lesson is not that the predictor is wrong. It correctly identified a venue that moves with the
 crisis, but that \emph{attribution and causation are different questions}, and a high-stakes
-intervention decision needs the second. Centrality answers ``what moved together?''. The knockout
-answers ``what, if removed, would have changed the outcome?'', and only the latter is actionable.
+intervention decision needs the second. Centrality answers ``what moved together?''; the knockout
+answers ``what, if removed, would have changed the outcome?''---only the latter is actionable.
 
 \paragraph{Why BUSD looked like a hub} BUSD was undergoing a regulatory wind-down in early 2023, so
-it was being steadily redeemed and traded nervously throughout the SVB weekend. That nervous
+it was being steadily redeemed and traded nervously throughout the SVB weekend. That
 co-movement gave it high correlation with every other stressed coin, and hence high betweenness and
 high model attention. But co-movement driven by a coin's \emph{own} idiosyncratic troubles transmits
 nothing to others, precisely the case the knockout is built to detect, and precisely why the balance
 sheet (no one holds BUSD) is the decisive tie-breaker.
 
 \paragraph{Relation to network systemic-risk measures} Our knockout is, in spirit, a counterfactual
-cousin of the centrality measures used in network finance. DebtRank and its relatives~\cite{battiston2012debtrank}
-score a node by how much distress propagates from it through a \emph{known} exposure network. They work
-precisely because that network is given. Our setting inverts the difficulty. The exposure
+cousin of DebtRank-style centrality~\cite{battiston2012debtrank}, which scores a node by how much
+distress propagates from it through a \emph{known} exposure network; our setting inverts the
+difficulty. The exposure
 network for stablecoins is not cleanly observed in real time, so a practitioner is tempted to substitute
 a \emph{price-derived} network (correlation, attention), which silently swaps a causal object for a
 correlational one. The contribution of the knockout is to make that substitution's cost visible, and the
@@ -656,13 +671,6 @@ contribution of the balance-sheet variant is to show that the genuinely causal o
 whom as reserves, is recoverable from disclosures after all. Read this way, our paper is an argument for
 putting documented exposure, not estimated centrality, at the centre of stablecoin systemic-risk
 measurement.
-
-\paragraph{Practical takeaway for supervisors} A reserve-transparency or backstop programme guided by
-a correlational contagion ranking would, in this episode, have spent its capacity on a venue with no
-systemic role. The same capacity directed by the causal ranking, or equivalently here by the
-documented reserve-exposure network, would have fully contained the cascade. Where the two disagree,
-the balance-sheet network is both cheaper to compute (it needs no price data) and, in our tests, the
-better causal guide.
 
 \section{Limitations}
 Our model is a calibrated reduced form, not a fully microfounded market, and two of our episodes are
@@ -683,13 +691,16 @@ reserves, the causal ranking would itself become time-varying, and a single knoc
 the danger of a node that becomes central only mid-cascade. Second, our calibration targets are
 second moments (volatility, cross-venue correlation, peg-recovery half-life) rather than the full
 joint distribution of returns, so a mechanism that leaves those moments unchanged but alters tail
-behaviour would be invisible to our fit. We examined a state-dependent noise extension
-($\sigma_{\mathrm{crisis}} = \rho\,\sigma_{\mathrm{calm}}$ for stressed nodes) as a step toward
-fourth-moment calibration. The baseline already produces substantial excess kurtosis (${\approx}75$
-above Gaussian) from the circuit-breaker nonlinearity. Boosting $\rho\in\{2,3\}$ reduces it toward
-$14$--$41$ while preserving all four calibrated moments, providing a lever to tune tail
-heaviness without disturbing the main calibration. Full kurtosis matching is deferred to future work. The near-critical regime we identify is the most this level
-of calibration can pin down. Third, the balance-sheet network that makes our causal object observable
+behaviour would be invisible to our fit. Relatedly, with five parameters fitted to four moments
+the calibration is a consistency check rather than an over-identifying test, and the split
+between panic co-movement ($\pi$) and network transmission ($c$) is identified only through
+those moments; the BUSD verdict does not rest on this split, since it is analytic
+(\S\ref{sec:exposure}). A state-dependent noise extension
+($\sigma_{\mathrm{crisis}}=\rho\,\sigma_{\mathrm{calm}}$ for stressed nodes) offers a lever
+toward tail calibration: the circuit-breaker nonlinearity already yields excess kurtosis
+${\approx}75$, and $\rho\in\{2,3\}$ tunes it to $14$--$41$ while preserving all four calibrated
+moments; full kurtosis matching is future work. The near-critical regime we identify is the most
+this level of calibration can pin down. Third, the balance-sheet network that makes our causal object observable
 relies on reserve disclosures that are, today, neither universal nor uniformly audited. The very
 GENIUS Act and MiCA regimes we invoke are what would make this input dependable at scale. None of
 these overturns the BUSD result, which is identified by the documented reserve structure of the
@@ -703,10 +714,8 @@ changes the policy outcome. Acting on the correlational hub wastes the entire bu
 target would have spent to contain the cascade. As supervisors operationalise the GENIUS Act and MiCA,
 the practical recommendation is conservative. When the stakes are an
 intervention, validate a contagion ranking against a causal counterfactual, and where the two
-disagree, prefer the documented reserve-exposure network, which is transparent, auditable, needs no
-market data, and, our predictive-causality result suggests, can be computed continuously before any
-crisis. A natural extension is a full on-chain reserve-exposure network across the stablecoin
-universe, making every causal statement mechanical rather than inferred. Contagion analytics
+disagree, prefer the documented reserve-exposure network: it is transparent, auditable, and
+computable before any crisis without market data. Contagion analytics
 intended to guide intervention should report \emph{validated causation}, not centrality alone.
 
 \begin{acks}
