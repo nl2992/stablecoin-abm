@@ -47,14 +47,14 @@ volatility, matches at the point estimate but lies below the model's noise floor
 per-venue ``knockout'' experiment.
 The predictor's top-ranked hub, \textbf{BUSD}, has a causal effect of \emph{exactly zero},
 while protecting the crisis origin (USDC) removes \emph{all} of the contagion. A version of the
-model built from \emph{documented reserve holdings}, rather than estimated price relationships, explains why. No stablecoin held BUSD as backing, so it was mechanically incapable of transmitting
-stress. The finding survives four independent robustness checks, namely $\pm30\%$ calibration uncertainty,
+model built from \emph{documented reserve holdings} explains why: no stablecoin held BUSD as
+backing, so it was mechanically incapable of transmitting stress. The finding survives four independent robustness checks, namely $\pm30\%$ calibration uncertainty,
 a strategic two-agent market, a switch from estimated to documented network structure, and a
 synthetic placebo control. The policy consequence is concrete. A regulator who backstops the
 correlational hub achieves $0\%$ contagion reduction, while the causal target achieves $100\%$. The
 predicted hub ranking is \emph{negatively} correlated with the true causal ranking
 (Spearman~$\rho{=}{-}0.54$ under a normalization applied uniformly across episodes; $-0.77$
-for the SVB-specific six-venue computation). The
+for the SVB-specific computation). The
 most correlationally central venue is the least causally relevant. An RL regulator trained on
 the calibrated ABM, observing only structural network features (including an origin indicator)
 and no causal labels, learns to protect the causal venues and allocates nothing to the spurious
@@ -207,8 +207,11 @@ We first estimate $W$ from the real minute-level data by asking which coin's mov
 close to, but below, the threshold of instability. If recovery $\kappa$ were strong relative to the
 transmission gain $c$, any depeg would be snuffed out instantly and there would be no contagion to
 study. If it were too weak, the smallest shock would blow up without bound. Real stablecoin crises
-sit in between. A shock decays only slowly, so a modest amount of transmission, accumulated over many
-steps, produces a large total depeg before the peg is restored. Tuning the model to this near-critical
+sit in between. In the calibrated model this is exact, not metaphor: the netted lead-lag network is
+acyclic, so the full-stress linearization $(1{-}\kappa)I + cW$ has spectral radius
+$1{-}\kappa = 0.994$---sub-critical, with shocks decaying at the recovery rate (half-life
+${\approx}116$ steps) while the network amplifies them transiently along its directed paths
+(committed check script). Tuning the model to this near-critical
 regime is what lets a realistic origin shock of a few percent grow into the observed $\sim$14\%
 contagion in the victims, and it is precisely the regime the bimodal AMM market cannot
 represent. Our reduced form is a deliberately minimal object that
@@ -250,7 +253,8 @@ The targets themselves are exported
 from the companion predictor's measurements of the real data, so the two studies are genuinely coupled.
 
 \begin{table}[t]
-\caption{Calibration. \emph{Within tolerance} means the simulated value is within a
+\caption{Calibration. \emph{Contagion magnitude} = peak deviation across non-origin victims
+(the origin's own depeg is the shock input, not a target). \emph{Within tolerance} means the simulated value is within a
 per-moment relative-error threshold of the empirical value ($0.25$ for contagion magnitude,
 $0.30$ for the other three). All four moments pass this gate at the calibration point
 estimate; \emph{baseline price volatility} is matched there ($0.0029 \approx 0.0030$) but
@@ -357,8 +361,8 @@ The true relay (\textbf{DAI}, green circle) is invisible to the GNN yet reduces 
 \label{fig:join}
 \end{figure}
 
-\paragraph{What each moment buys us} The four calibration moments are not arbitrary. Each pins down a
-different aspect of the dynamics that the counterfactual depends on. The \emph{contagion magnitude}
+\paragraph{What each moment buys us} Each calibration moment pins down a different aspect of
+the dynamics the counterfactual depends on. The \emph{contagion magnitude}
 fixes the overall gain, so that a knockout's percentage reduction is meaningful. The \emph{half-life}
 fixes the recovery rate $\kappa$, which determines how long a protected node's absence is felt. The
 \emph{baseline volatility} fixes the noise floor against which the stochastic moments are read;
@@ -492,7 +496,8 @@ venue; in Terra the collapse is algorithmic and all knockouts give $\Delta\appro
 so its row tests agreement only.
 USDT (May) has $\rho{=}{+}0.77$ yet a misidentified top hub: even a globally good ranking can
 misallocate the first backstop dollar.
-The SVB-specific six-venue join gives a stronger $\rho{=}{-}0.77$ ($p{=}0.23$).}
+The SVB-specific join (over the $n{=}4$ venues with a nonzero predicted or causal score) gives a
+stronger $\rho{=}{-}0.77$ ($p{=}0.23$).}
 \label{tab:multi}
 \small
 \setlength{\tabcolsep}{3pt}
@@ -666,11 +671,10 @@ distress propagates from it through a \emph{known} exposure network; our setting
 difficulty. The exposure
 network for stablecoins is not cleanly observed in real time, so a practitioner is tempted to substitute
 a \emph{price-derived} network (correlation, attention), which silently swaps a causal object for a
-correlational one. The contribution of the knockout is to make that substitution's cost visible, and the
-contribution of the balance-sheet variant is to show that the genuinely causal object, namely who holds
-whom as reserves, is recoverable from disclosures after all. Read this way, our paper is an argument for
-putting documented exposure, not estimated centrality, at the centre of stablecoin systemic-risk
-measurement.
+correlational one. The knockout makes that substitution's cost visible; the balance-sheet variant
+shows the genuinely causal object---who holds whom as reserves---is recoverable from disclosures
+after all. Read this way, the paper argues for putting documented exposure, not estimated
+centrality, at the centre of stablecoin systemic-risk measurement.
 
 \section{Limitations}
 Our model is a calibrated reduced form, not a fully microfounded market, and two of our episodes are

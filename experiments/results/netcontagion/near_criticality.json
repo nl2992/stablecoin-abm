@@ -1,0 +1,19 @@
+{
+  "episode": "USDC_SVB",
+  "nodes": [
+    "USDC/binance",
+    "TUSD/binance",
+    "USDP/binance",
+    "BUSD/binance",
+    "DAI/coinbase",
+    "USDT/coinbase"
+  ],
+  "kappa": 0.005975381930676106,
+  "coupling": 0.021728678463802064,
+  "dt": 1.0,
+  "spectral_radius_W": 0.0,
+  "spectral_radius_M": 0.994025,
+  "distance_to_criticality": 0.005975,
+  "subcritical": true,
+  "note": "M = (1-kappa*dt)I + coupling*W is the exact linearization of the full-stress homogeneous propagation in model.py. rho(M)<1 => shocks decay (sub-critical); rho(M) close to 1 => slow decay (near-critical). The panic term pi*|d_origin| is forcing from the origin's own decaying deviation, not feedback through other nodes."
+}
