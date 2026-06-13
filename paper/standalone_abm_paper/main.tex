@@ -341,10 +341,10 @@ the entire content of the result.
 
 Two anchors validate the experiment: protecting the crisis origin (USDC) removes $100\%$ of the
 contagion, exactly what a faithful model should say about the source, and \textbf{BUSD, the
-predictor's \#1 hub, has a causal effect of zero}. The full ranking we consume is the predictor's
-normalized hub importance for this episode (a composite dominated by undirected betweenness, per
-the companion study)---BUSD~$1.00$ (rank~1), TUSD~$0.26$, USDP~$0.08$, and
-DAI and USDT~$0.00$---so the predictor scores the true relay (DAI) at zero. Figure~\ref{fig:join}
+predictor's \#1 hub, has a causal effect of zero}. The non-origin hub ranking we consume is the predictor's
+normalized importance (a composite dominated by undirected betweenness, per the companion study;
+USDC is the known origin shock, not a candidate hub)---BUSD~$1.00$ (rank~1), TUSD~$0.26$,
+USDP~$0.08$, and DAI and USDT~$0.00$---so the predictor scores the true relay (DAI) at zero. Figure~\ref{fig:join}
 plots, for every venue, this correlational importance against the model's causal effect. The two
 are \emph{negatively} associated (Spearman $-0.77$ over the $n{=}4$ scored venues, not significant at
 $p{=}0.23$; the result rests on the structural balance-sheet argument of \S\ref{sec:exposure}, not on
